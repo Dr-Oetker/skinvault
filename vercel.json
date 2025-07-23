@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npm install --omit=optional && npm run build:safe",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "installCommand": "npm install --omit=optional"
+} 
