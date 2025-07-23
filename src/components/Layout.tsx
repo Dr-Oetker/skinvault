@@ -30,8 +30,8 @@ interface SearchResult {
 }
 
 export default function Layout() {
-  const { user, checkSession, logout } = useAuth();
-  const { acceptCookies, declineCookies, checkCookieConsent } = useCookies();
+  const { user, checkSession } = useAuth();
+  const { acceptCookies, declineCookies } = useCookies();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -49,8 +49,6 @@ export default function Layout() {
   }, [location.pathname]);
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [weapons, setWeapons] = useState<Weapon[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -68,8 +66,6 @@ export default function Layout() {
     const fetchData = async () => {
       const { data: catData } = await supabase.from("categories").select();
       setCategories(catData || []);
-      const { data: weaponData } = await supabase.from("weapons").select();
-      setWeapons(weaponData || []);
     };
     fetchData();
   }, []);
@@ -264,10 +260,7 @@ export default function Layout() {
     return null;
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
+
 
   return (
     <div className="min-h-screen bg-dark-bg-primary text-dark-text-primary flex flex-col">

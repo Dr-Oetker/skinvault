@@ -1,4 +1,4 @@
-import React from "react";
+
 
 interface LoadingSkeletonProps {
   type?: "spinner" | "skeleton" | "card" | "page";

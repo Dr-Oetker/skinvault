@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { HelmetProvider } from "react-helmet-async";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import StickerCrafts from "./pages/StickerCrafts";
@@ -26,36 +25,34 @@ import Category from "./pages/Category";
 
 function App() {
   return (
-    <HelmetProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="sticker-crafts" element={<StickerCrafts />} />
-            <Route path="sticker-crafts/:id" element={<StickerCraftDetail />} />
-            <Route path="loadouts" element={<Loadouts />} />
-            <Route path="loadouts/new" element={<CreateLoadout />} />
-            <Route path="loadouts/:loadoutType/:loadoutId" element={<LoadoutDetail />} />
-            <Route path="loadouts/edit/:id" element={<EditLoadout />} />
-            <Route path="login" element={<Login />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="weapons/:weaponName" element={<Weapon />} />
-            <Route path="skins/:skinId" element={<Skin />} />
-            <Route path="category/:categoryName" element={<Category />} />
-            <Route path="resell-tracker" element={<ResellTracker />} />
-            <Route path="admin" element={<AdminDashboard />} />
-            <Route path="admin/loadouts" element={<AdminLoadouts />} />
-            <Route path="admin/sticker-crafts" element={<AdminStickerCrafts />} />
-            <Route path="reset-password" element={<ResetPassword />} />
-            <Route path="legal-notice" element={<LegalNotice />} />
-            <Route path="privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="terms-of-service" element={<TermsOfService />} />
-            <Route path="contact" element={<Contact />} />
-            <Route path="cookie-settings" element={<CookieSettings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </HelmetProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="sticker-crafts" element={<StickerCrafts />} />
+          <Route path="sticker-crafts/:id" element={<StickerCraftDetail />} />
+          <Route path="loadouts" element={<Loadouts />} />
+          <Route path="loadouts/new" element={<CreateLoadout />} />
+          <Route path="loadouts/:loadoutType/:loadoutId" element={<LoadoutDetail />} />
+          <Route path="loadouts/edit/:id" element={<EditLoadout />} />
+          <Route path="login" element={<Login />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="weapons/:weaponName" element={<Weapon />} />
+          <Route path="skins/:skinId" element={<Skin />} />
+          <Route path="category/:categoryName" element={<Category />} />
+          <Route path="resell-tracker" element={<ResellTracker />} />
+          <Route path="admin" element={<AdminDashboard />} />
+          <Route path="admin/loadouts" element={<AdminLoadouts />} />
+          <Route path="admin/sticker-crafts" element={<AdminStickerCrafts />} />
+          <Route path="reset-password" element={<ResetPassword />} />
+          <Route path="legal-notice" element={<LegalNotice />} />
+          <Route path="privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="terms-of-service" element={<TermsOfService />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="cookie-settings" element={<CookieSettings />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 

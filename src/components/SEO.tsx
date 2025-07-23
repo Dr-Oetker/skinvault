@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { useEffect } from 'react';
 
 interface SEOProps {
   title?: string;
@@ -28,43 +28,87 @@ export default function SEO({
   const fullUrl = canonical || `${url}${window.location.pathname}`;
   const fullImageUrl = image.startsWith('http') ? image : `${url}${image}`;
 
-  return (
-    <Helmet>
-      {/* Primary Meta Tags */}
-      <title>{title}</title>
-      <meta name="title" content={title} />
-      <meta name="description" content={description} />
-      <meta name="keywords" content={keywords} />
-      <meta name="robots" content={noIndex ? 'noindex, nofollow' : 'index, follow'} />
-      <meta name="language" content={language} />
-      
-      {/* Canonical URL */}
-      <link rel="canonical" href={fullUrl} />
-      
-      {/* Open Graph / Facebook */}
-      <meta property="og:type" content={type} />
-      <meta property="og:url" content={fullUrl} />
-      <meta property="og:title" content={title} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={fullImageUrl} />
-      <meta property="og:site_name" content="SkinVault" />
-      <meta property="og:locale" content="en_US" />
-      
-      {/* Twitter */}
-      <meta property="twitter:card" content="summary_large_image" />
-      <meta property="twitter:url" content={fullUrl} />
-      <meta property="twitter:title" content={title} />
-      <meta property="twitter:description" content={description} />
-      <meta property="twitter:image" content={fullImageUrl} />
-      
-      {/* Structured Data */}
-      {structuredData && (
-        <script type="application/ld+json">
-          {JSON.stringify(structuredData)}
-        </script>
-      )}
-    </Helmet>
-  );
+  useEffect(() => {
+    // Update document title
+    document.title = title;
+
+    // Update or create meta tags
+    const updateMetaTag = (name: string, content: string) => {
+      let meta = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = name;
+        document.head.appendChild(meta);
+      }
+      meta.content = content;
+    };
+
+    const updatePropertyTag = (property: string, content: string) => {
+      let meta = document.querySelector(`meta[property="${property}"]`) as HTMLMetaElement;
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('property', property);
+        document.head.appendChild(meta);
+      }
+      meta.content = content;
+    };
+
+    // Primary Meta Tags
+    updateMetaTag('title', title);
+    updateMetaTag('description', description);
+    updateMetaTag('keywords', keywords);
+    updateMetaTag('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
+    updateMetaTag('language', language);
+
+    // Canonical URL
+    let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
+    if (!canonicalLink) {
+      canonicalLink = document.createElement('link');
+      canonicalLink.rel = 'canonical';
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.href = fullUrl;
+
+    // Open Graph / Facebook
+    updatePropertyTag('og:type', type);
+    updatePropertyTag('og:url', fullUrl);
+    updatePropertyTag('og:title', title);
+    updatePropertyTag('og:description', description);
+    updatePropertyTag('og:image', fullImageUrl);
+    updatePropertyTag('og:site_name', 'SkinVault');
+    updatePropertyTag('og:locale', 'en_US');
+
+    // Twitter
+    updatePropertyTag('twitter:card', 'summary_large_image');
+    updatePropertyTag('twitter:url', fullUrl);
+    updatePropertyTag('twitter:title', title);
+    updatePropertyTag('twitter:description', description);
+    updatePropertyTag('twitter:image', fullImageUrl);
+
+    // Structured Data
+    if (structuredData) {
+      // Remove existing structured data
+      const existingScript = document.querySelector('script[type="application/ld+json"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+
+      // Add new structured data
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.textContent = JSON.stringify(structuredData);
+      document.head.appendChild(script);
+    }
+
+    // Cleanup function
+    return () => {
+      // Reset to default title when component unmounts
+      document.title = 'SkinVault - CS 2 Skin Management & Trading Platform';
+    };
+  }, [title, description, keywords, fullUrl, fullImageUrl, type, structuredData, noIndex, language]);
+
+  // This component doesn't render anything
+  return null;
 }
 
 // Predefined SEO configurations for different page types
