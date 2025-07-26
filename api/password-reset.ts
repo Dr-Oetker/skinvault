@@ -1,7 +1,129 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import { createEmailService, getDefaultEmailConfig } from '../src/services/emailService';
+
+// Email service configuration
+interface EmailConfig {
+  provider: 'resend' | 'sendgrid' | 'nodemailer' | 'aws-ses' | 'mailgun' | 'brevo' | 'ethereal';
+  apiKey: string;
+  fromEmail: string;
+  fromName?: string;
+  region?: string;
+  domain?: string;
+}
+
+// Get email configuration from environment variables
+const getDefaultEmailConfig = (): EmailConfig => {
+  return {
+    provider: (process.env.EMAIL_PROVIDER as any) || 'resend',
+    apiKey: process.env.EMAIL_API_KEY || '',
+    fromEmail: process.env.EMAIL_FROM || 'noreply@skinvault.app',
+    fromName: process.env.EMAIL_FROM_NAME || 'SkinVault',
+    region: process.env.EMAIL_REGION,
+    domain: process.env.EMAIL_DOMAIN
+  };
+};
+
+// Simple email service for the API
+class EmailService {
+  private config: EmailConfig;
+
+  constructor(config: EmailConfig) {
+    this.config = config;
+  }
+
+  async sendPasswordResetEmail(email: string, resetUrl: string, userName?: string): Promise<boolean> {
+    const subject = 'Reset Your SkinVault Password';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Reset Your Password</h2>
+        <p>Hello ${userName || 'there'},</p>
+        <p>You requested a password reset for your SkinVault account.</p>
+        <p>Click the button below to reset your password:</p>
+        <a href="${resetUrl}" style="display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reset Password</a>
+        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #666;">${resetUrl}</p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this reset, please ignore this email.</p>
+        <p>Best regards,<br>The SkinVault Team</p>
+      </div>
+    `;
+    const text = `
+      Reset Your Password
+      
+      Hello ${userName || 'there'},
+      
+      You requested a password reset for your SkinVault account.
+      
+      Click this link to reset your password: ${resetUrl}
+      
+      This link will expire in 1 hour.
+      
+      If you didn't request this reset, please ignore this email.
+      
+      Best regards,
+      The SkinVault Team
+    `;
+
+    return this.sendEmail(email, subject, html, text);
+  }
+
+  private async sendEmail(to: string, subject: string, html: string, text: string): Promise<boolean> {
+    if (this.config.provider === 'resend') {
+      return this.sendWithResend(to, subject, html, text);
+    }
+    
+    console.error('Unsupported email provider:', this.config.provider);
+    return false;
+  }
+
+  private async sendWithResend(to: string, subject: string, html: string, text: string): Promise<boolean> {
+    if (!this.config.apiKey) {
+      console.error('Resend API key is missing');
+      return false;
+    }
+
+    try {
+      const emailPayload = {
+        from: this.config.fromEmail,
+        to: [to],
+        subject: subject,
+        html: html,
+        text: text
+      };
+
+      console.log('Sending email to Resend:', {
+        from: emailPayload.from,
+        to: emailPayload.to,
+        subject: emailPayload.subject
+      });
+
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(emailPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Resend API error:', response.status, errorData);
+        return false;
+      }
+
+      const result = await response.json();
+      console.log('Resend email sent successfully:', result);
+      return true;
+    } catch (error) {
+      console.error('Resend request error:', error);
+      return false;
+    }
+  }
+}
+
+const createEmailService = (config: EmailConfig) => new EmailService(config);
 
 // Initialize Supabase with service role key for admin operations
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
