@@ -294,14 +294,14 @@ export default function LoadoutDetail() {
       setLoading(true);
       
       try {
-        // Fetch loadout details
-        const tableName = loadoutType === 'user' ? 'user_loadouts' : 'official_loadouts';
+      // Fetch loadout details
+      const tableName = loadoutType === 'user' ? 'user_loadouts' : 'official_loadouts';
         const { data: loadoutData, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .eq('id', loadoutId)
-          .single();
-        
+        .from(tableName)
+        .select('*')
+        .eq('id', loadoutId)
+        .single();
+      
         if (error) {
           if (error.code === 'PGRST116') {
             // No rows returned - loadout not found
@@ -311,9 +311,9 @@ export default function LoadoutDetail() {
           throw error;
         }
         
-        if (loadoutData) {
-          console.log('Loaded loadout data:', loadoutData);
-          setLoadout({ ...loadoutData, loadout_type: loadoutType as 'user' | 'official' });
+      if (loadoutData) {
+        console.log('Loaded loadout data:', loadoutData);
+        setLoadout({ ...loadoutData, loadout_type: loadoutType as 'user' | 'official' });
         } else {
           handleApiError({ status: 404, message: 'Loadout not found' }, navigate);
           return;
@@ -323,7 +323,7 @@ export default function LoadoutDetail() {
         handleApiError(error, navigate);
         return;
       } finally {
-        setLoading(false);
+      setLoading(false);
       }
     };
 

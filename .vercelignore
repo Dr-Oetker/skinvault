@@ -1,0 +1,12 @@
+# Ignore everything except what we need
+node_modules
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+
+# Don't ignore API functions
+!api/
+!api/** 
