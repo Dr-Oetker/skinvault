@@ -14,6 +14,16 @@ export const initializeSessionManager = () => {
         case 'SIGNED_IN':
           if (session?.user) {
             authStore.user = session.user;
+            
+            // If we're on the reset password page and user just signed in, redirect them
+            if (window.location.pathname === '/reset-password') {
+              console.log('User signed in during password reset, redirecting to home...');
+              setTimeout(() => {
+                window.location.href = '/';
+              }, 1000);
+              return;
+            }
+            
             // Fetch user's favorites after successful login
             const { useFavorites } = await import('../store/favorites');
             const favoritesStore = useFavorites.getState();

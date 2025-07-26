@@ -88,6 +88,11 @@ export default function ResetPassword() {
             setError("Failed to validate reset link. Please try again.");
           } else {
             console.log("Successfully exchanged code for session");
+            // If we successfully exchanged the code, we're now signed in
+            // Redirect to home page to avoid loading issues
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
           }
         });
       } else {
