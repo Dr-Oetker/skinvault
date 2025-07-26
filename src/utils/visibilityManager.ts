@@ -4,12 +4,6 @@ import { isSessionValid, refreshSession } from './sessionManager';
 export const initializeVisibilityManager = () => {
   const handleVisibilityChange = async () => {
     if (!document.hidden) {
-      // Skip session checks on reset password page
-      if (window.location.pathname === '/reset-password') {
-        console.log('Skipping session check on reset password page (visibility change)');
-        return;
-      }
-      
       // User has returned to the app
       console.log('App became visible, checking session...');
       
@@ -45,12 +39,6 @@ export const initializeVisibilityManager = () => {
 // Handle page focus (alternative to visibility change)
 export const initializeFocusManager = () => {
   const handleFocus = async () => {
-    // Skip session checks on reset password page
-    if (window.location.pathname === '/reset-password') {
-      console.log('Skipping session check on reset password page (focus)');
-      return;
-    }
-    
     console.log('Window focused, checking session...');
     
     try {
