@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/auth';
 import { isAdmin } from '../utils/admin';
 import { supabase } from '../supabaseClient';
+import { getSideImage, getWeaponImage } from '../utils/images';
 
 interface Skin {
   id: string;
@@ -692,7 +693,7 @@ export default function AdminLoadouts() {
                 </div>
               ) : (
                 <>
-                  <img src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Knife' : 'CT_Knife'}.webp`} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow" />
+                  <img src={getSideImage('knife', activeSide)} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow" />
                   <button
                     onClick={() => handleWeaponSelect(`knives_${activeSide}side`)}
                     className="w-full py-2 px-4 border border-gray-300 rounded hover:bg-gray-50 mt-2"
@@ -731,7 +732,7 @@ export default function AdminLoadouts() {
                 </div>
               ) : (
                 <>
-                  <img src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Gloves' : 'CT_Gloves'}.webp`} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow" />
+                  <img src={getSideImage('gloves', activeSide)} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow" />
                   <button
                     onClick={() => handleWeaponSelect(`gloves_${activeSide}side`)}
                     className="w-full py-2 px-4 border border-gray-300 rounded hover:bg-gray-50 mt-2"
@@ -752,7 +753,7 @@ export default function AdminLoadouts() {
                   const skinInfo = selectedSkinsInfo[weapon.key];
                   let defaultImage = '';
                   const fileName = weapon.name.replace(/[^a-zA-Z0-9-]/g, match => match === ' ' ? ' ' : '').replace(/\s+/g, ' ').trim();
-                  defaultImage = `/src/assets/images/standard_weapons/${fileName}.webp`;
+                  defaultImage = getWeaponImage(fileName);
                   
                   return (
                     <div key={weapon.key} className="border rounded-lg p-3 flex flex-col items-center relative">

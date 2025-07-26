@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { getSideImage, getWeaponImage } from '../utils/images';
 
 // Weapon definitions (reuse from LoadoutDetail)
 const weaponDefinitions = {
@@ -582,7 +583,7 @@ export default function EditLoadout() {
                 className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-colors"
               >
                 <img 
-                  src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Knife' : 'CT_Knife'}.webp`} 
+                  src={getSideImage('knife', activeSide)} 
                   alt="Default Knife" 
                   className="w-24 h-24 object-contain" 
                 />
@@ -622,7 +623,7 @@ export default function EditLoadout() {
                 className="w-32 h-32 border-2 border-dashed border-gray-300 rounded flex items-center justify-center hover:border-blue-500 hover:bg-blue-50 transition-colors"
               >
                 <img 
-                  src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Gloves' : 'CT_Gloves'}.webp`} 
+                  src={getSideImage('gloves', activeSide)} 
                   alt="Default Gloves" 
                   className="w-24 h-24 object-contain" 
                 />
@@ -639,7 +640,7 @@ export default function EditLoadout() {
               {weapons.map(weapon => {
                 const skinInfo = selectedSkinsInfo[weapon.key];
                 const fileName = weapon.name.replace(/[^a-zA-Z0-9-]/g, match => match === ' ' ? ' ' : '').replace(/\s+/g, ' ').trim();
-                const defaultImage = `/src/assets/images/standard_weapons/${fileName}.webp`;
+                const defaultImage = getWeaponImage(fileName);
                 
                 return (
                   <div key={weapon.key} className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 flex flex-col items-center relative p-4">

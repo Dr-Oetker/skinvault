@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { logoImage } from '../utils/images';
 
 interface SEOProps {
   title?: string;
@@ -17,7 +18,7 @@ export default function SEO({
   title = 'SkinVault - CS 2 Skin Management & Trading Platform',
   description = 'Discover, manage, and track CS 2 skins, sticker crafts, and loadouts. Your ultimate hub for Counter-Strike 2 skin management with real-time pricing and resell tracking.',
   keywords = 'CS 2, Counter-Strike 2, skins, sticker crafts, loadouts, trading, Steam, gaming, weapons, knives, gloves',
-  image = '/src/assets/images/logo/SV Logo.png',
+  image = logoImage,
   url = 'https://skinvault.app',
   type = 'website',
   structuredData,

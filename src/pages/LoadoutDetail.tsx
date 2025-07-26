@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { getSideImage, getWeaponImage } from '../utils/images';
 
 // Weapon interface removed as it's not used
 
@@ -864,7 +865,7 @@ export default function LoadoutDetail() {
               </div>
             ) : (
               <>
-                <img src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Knife' : 'CT_Knife'}.webp`} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow" />
+                <img src={getSideImage('knife', activeSide)} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow" />
               </>
             )}
           </div>
@@ -884,7 +885,7 @@ export default function LoadoutDetail() {
               </div>
             ) : (
               <>
-                <img src={`/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Gloves' : 'CT_Gloves'}.webp`} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow" />
+                <img src={getSideImage('gloves', activeSide)} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow" />
               </>
             )}
           </div>
@@ -900,12 +901,11 @@ export default function LoadoutDetail() {
                 // Determine default image path
                 let defaultImage = '';
                 if (weapon.name === 'Knives') {
-                  defaultImage = `/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Knife' : 'CT_Knife'}.webp`;
+                  defaultImage = getSideImage('knife', activeSide);
                 } else if (weapon.name === 'Gloves') {
-                  defaultImage = `/src/assets/images/standard_weapons/${activeSide === 't' ? 'T_Gloves' : 'CT_Gloves'}.webp`;
+                  defaultImage = getSideImage('gloves', activeSide);
                 } else {
-                  const fileName = weapon.name.replace(/[^a-zA-Z0-9-]/g, match => match === ' ' ? ' ' : '').replace(/\s+/g, ' ').trim();
-                  defaultImage = `/src/assets/images/standard_weapons/${fileName}.webp`;
+                  defaultImage = getWeaponImage(weapon.name);
                 }
                 return (
                   <div key={weapon.key} className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 flex flex-col items-center relative p-4">

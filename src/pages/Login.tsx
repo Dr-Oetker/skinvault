@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../store/auth";
 import { useNavigate } from "react-router-dom";
+import { logoImage } from '../utils/images';
 
 export default function Login() {
   const { user, login, register, resetPassword, loading } = useAuth();
@@ -86,7 +87,7 @@ export default function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <img 
-            src="/src/assets/images/logo/SV Logo.png" 
+            src={logoImage} 
             alt="SkinVault Logo" 
             className="w-24 h-24 object-contain mx-auto mb-4"
           />

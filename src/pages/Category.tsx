@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import SEO, { SEOPresets } from '../components/SEO';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { getWeaponImage } from '../utils/images';
 
 interface Weapon {
   id: string;
@@ -62,8 +63,7 @@ export default function Category() {
               .eq("weapon", weapon.name);
             
             // Create a clean weapon name for fallback image
-            const cleanWeaponName = weapon.name.replace(/[^a-zA-Z0-9]/g, '');
-            const fallbackImage = `/src/assets/images/standard_weapons/${cleanWeaponName}.webp`;
+            const fallbackImage = getWeaponImage(weapon.name);
             
             return {
               ...weapon,

@@ -5,6 +5,7 @@ import { useCookies } from "../store/cookies";
 import { isAdmin } from "../utils/admin";
 import { supabase } from "../supabaseClient";
 import CookieBanner from "./CookieBanner";
+import { logoImage } from '../utils/images';
 
 interface Category {
   id: string;
@@ -272,7 +273,7 @@ export default function Layout() {
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
                 <img 
-                  src="/src/assets/images/logo/SV Logo.png" 
+                  src={logoImage} 
                   alt="SkinVault Logo" 
                   className="w-12 h-12 object-contain"
                 />
@@ -494,7 +495,7 @@ export default function Layout() {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-0">
               <div className="flex items-center gap-2">
                 <img 
-                  src="/src/assets/images/logo/SV Logo.png" 
+                  src={logoImage} 
                   alt="SkinVault Logo" 
                   className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
                 />
