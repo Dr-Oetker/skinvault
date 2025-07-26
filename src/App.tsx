@@ -30,6 +30,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { useEffect } from "react";
 import { initializeSessionManager } from "./utils/sessionManager";
 import { initializeVisibilityManager, initializeFocusManager } from "./utils/visibilityManager";
+import { autoFixSession } from "./utils/sessionCleanup";
+import DebugPanel from "./components/DebugPanel";
 
 function App() {
   // Initialize session and visibility managers
@@ -37,6 +39,15 @@ function App() {
     const sessionCleanup = initializeSessionManager();
     const visibilityCleanup = initializeVisibilityManager();
     const focusCleanup = initializeFocusManager();
+    
+    // Auto-fix session issues on app start
+    const checkSession = async () => {
+      const fixed = await autoFixSession();
+      if (fixed) {
+        console.log('Session issues detected and fixed on app start');
+      }
+    };
+    checkSession();
     
     return () => {
       sessionCleanup();
@@ -83,6 +94,7 @@ function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    <DebugPanel />
     </ErrorBoundary>
   );
 }
