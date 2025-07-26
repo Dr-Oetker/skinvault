@@ -11,16 +11,43 @@ interface AuthState {
   checkSession: () => Promise<void>;
   register: (email: string, password: string) => Promise<{ error: any } | undefined>;
   resetPassword: (email: string) => Promise<{ error: any } | undefined>;
+  validateSession: () => Promise<boolean>;
 }
 
-export const useAuth = create<AuthState>((set) => ({
+export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   loading: false,
   login: async (email, password) => {
     set({ loading: true });
+    
+    // Clear any existing corrupted session data before login
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.includes('supabase') || key.includes('auth') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+      sessionStorage.clear();
+      console.log("Cleared existing session data before login");
+    } catch (error) {
+      console.error("Error clearing session data before login:", error);
+    }
+    
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (!error && data.user) {
       set({ user: data.user, loading: false });
+      
+      // Validate the session to ensure it's working properly
+      const isValid = await get().validateSession();
+      if (!isValid) {
+        console.error('Session validation failed after login');
+        // Clear the session and return error
+        await supabase.auth.signOut();
+        set({ user: null, loading: false });
+        return { error: { message: 'Login successful but session validation failed. Please try again.' } };
+      }
+      
       // Store session info in cookies if enabled
       if (shouldUseCookies()) {
         setCookie('user_session', data.user.id, 7); // 7 days
@@ -102,6 +129,35 @@ export const useAuth = create<AuthState>((set) => ({
     } catch (error) {
       console.error('Session check failed:', error);
       set({ user: null, loading: false });
+    }
+  },
+  validateSession: async () => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('Session validation error:', error);
+        return false;
+      }
+      
+      if (!data.user) {
+        console.log('No user found in session');
+        return false;
+      }
+      
+      // Test database access to ensure session is working
+      const { error: dbError } = await supabase.from('categories').select('count').limit(1);
+      
+      if (dbError) {
+        console.error('Database access error during session validation:', dbError);
+        return false;
+      }
+      
+      console.log('Session validation successful');
+      return true;
+    } catch (error) {
+      console.error('Session validation failed:', error);
+      return false;
     }
   },
 })); 

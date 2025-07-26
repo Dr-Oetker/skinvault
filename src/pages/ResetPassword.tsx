@@ -13,31 +13,7 @@ export default function ResetPassword() {
   const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
-    // Clear any existing session data to prevent auto-login issues
-    const clearExistingSession = () => {
-      try {
-        // Clear Supabase session data
-        localStorage.removeItem('sb-skinvault-web-auth-token');
-        sessionStorage.clear();
-        
-        // Clear any other auth-related data
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-          if (key.includes('supabase') || key.includes('auth') || key.includes('sb-')) {
-            localStorage.removeItem(key);
-          }
-        });
-        
-        console.log("Cleared existing session data");
-      } catch (error) {
-        console.error("Error clearing session data:", error);
-      }
-    };
-    
-    // Clear session data first
-    clearExistingSession();
-    
-    // Get URL parameters
+    // Get URL parameters first
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     const accessToken = urlParams.get("access_token");
@@ -75,16 +51,37 @@ export default function ResetPassword() {
       // Supabase sends a code that needs to be exchanged for a session
       console.log("Found code parameter, exchanging for session...");
       finalToken = code;
+      
+      // Don't clear session data if we have a code - Supabase needs the PKCE verifier
+      console.log("Preserving session data for code exchange");
     } else if (accessToken || hashAccessToken) {
-      // Direct access token
+      // Direct access token - clear session data first
       finalToken = accessToken || hashAccessToken;
+      
+      // Clear session data for direct token flow
+      try {
+        localStorage.removeItem('sb-skinvault-web-auth-token');
+        sessionStorage.clear();
+        
+        // Clear any other auth-related data
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.includes('supabase') || key.includes('auth') || key.includes('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        console.log("Cleared existing session data for direct token flow");
+      } catch (error) {
+        console.error("Error clearing session data:", error);
+      }
     }
     
     setToken(finalToken);
     
     if (finalToken) {
       if (code) {
-        // Exchange code for session
+        // Exchange code for session - don't clear data first
         supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
           if (error) {
             console.error("Error exchanging code for session:", error);
