@@ -37,7 +37,7 @@ export class PasswordResetService {
   private static async makeRequest(data: PasswordResetRequest): Promise<PasswordResetResponse> {
     try {
       // In development, provide a mock response
-      if (import.meta.env.DEV) {
+      if (import.meta.env.DEV && window.location.hostname === 'localhost') {
         console.log('Development mode: Mocking password reset request', data);
         
         // Simulate API delay

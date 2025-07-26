@@ -95,22 +95,33 @@ class EmailService {
       throw new Error('Resend API key is required');
     }
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: this.config.fromEmail || 'SkinVault <noreply@skinvault.app>',
-        to: emailData.to,
-        subject: emailData.subject,
-        html: emailData.html,
-        text: emailData.text
-      })
-    });
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: this.config.fromEmail || 'noreply@skinvault.app',
+          to: [emailData.to],
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text
+        })
+      });
 
-    return response.ok;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Resend API error:', response.status, errorData);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Resend request error:', error);
+      return false;
+    }
   }
 
   // Nodemailer implementation (for SMTP)
