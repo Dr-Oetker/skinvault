@@ -61,17 +61,31 @@ export const useAuth = create<AuthState>((set) => ({
   },
   checkSession: async () => {
     set({ loading: true });
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      set({ user: data.user, loading: false });
-      // Store session info in cookies if enabled
-      if (shouldUseCookies()) {
-        setCookie('user_session', data.user.id, 7); // 7 days
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('Session check error:', error);
+        // If there's an auth error, clear the session
+        await supabase.auth.signOut();
+        set({ user: null, loading: false });
+        return;
       }
-      // Fetch user's favorites if they have an active session
-      const favoritesStore = useFavorites.getState();
-      await favoritesStore.fetchFavorites(data.user.id);
-    } else {
+      
+      if (data.user) {
+        set({ user: data.user, loading: false });
+        // Store session info in cookies if enabled
+        if (shouldUseCookies()) {
+          setCookie('user_session', data.user.id, 7); // 7 days
+        }
+        // Fetch user's favorites if they have an active session
+        const favoritesStore = useFavorites.getState();
+        await favoritesStore.fetchFavorites(data.user.id);
+      } else {
+        set({ user: null, loading: false });
+      }
+    } catch (error) {
+      console.error('Session check failed:', error);
       set({ user: null, loading: false });
     }
   },

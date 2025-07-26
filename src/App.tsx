@@ -27,8 +27,24 @@ import Error500 from "./pages/Error500";
 import Error403 from "./pages/Error403";
 import Error from "./pages/Error";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { useEffect } from "react";
+import { initializeSessionManager } from "./utils/sessionManager";
+import { initializeVisibilityManager, initializeFocusManager } from "./utils/visibilityManager";
 
 function App() {
+  // Initialize session and visibility managers
+  useEffect(() => {
+    const sessionCleanup = initializeSessionManager();
+    const visibilityCleanup = initializeVisibilityManager();
+    const focusCleanup = initializeFocusManager();
+    
+    return () => {
+      sessionCleanup();
+      visibilityCleanup();
+      focusCleanup();
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

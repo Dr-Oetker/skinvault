@@ -7,6 +7,7 @@ interface FavoritesState {
   fetchFavorites: (userId: string) => Promise<void>;
   addFavorite: (userId: string, skinId: string) => Promise<void>;
   removeFavorite: (userId: string, skinId: string) => Promise<void>;
+  clearFavorites: () => void;
 }
 
 export const useFavorites = create<FavoritesState>((set, get) => ({
@@ -50,5 +51,9 @@ export const useFavorites = create<FavoritesState>((set, get) => ({
     } else {
       set({ loading: false });
     }
+  },
+
+  clearFavorites: () => {
+    set({ favoriteSkinIds: [], loading: false });
   },
 })); 
