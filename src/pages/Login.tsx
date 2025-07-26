@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../store/auth";
 import { useNavigate } from "react-router-dom";
 import { logoImage } from '../utils/images';
+import { PasswordResetService } from '../services/passwordResetService';
 
 export default function Login() {
-  const { user, login, register, resetPassword, loading } = useAuth();
+  const { user, login, register, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,18 +59,28 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
-    const result = await resetPassword(email);
-    if (result && result.error) {
-      // Handle rate limit error specifically
-      if (result.error.message?.includes('rate limit') || result.error.status === 429) {
-        setError("Too many password reset attempts. Please wait a few minutes before trying again.");
-        setIsRateLimited(true);
-        setRateLimitCountdown(300); // 5 minutes countdown
+    
+    try {
+      const result = await PasswordResetService.requestPasswordReset(email);
+      
+      if (result.success) {
+        setSuccess("Password reset email sent! Please check your email (including spam folder) for instructions.");
+        // In development, show the reset URL for testing
+        if (import.meta.env.DEV && result.resetUrl) {
+          console.log('Reset URL (dev only):', result.resetUrl);
+        }
       } else {
-        setError(result.error.message);
+        if (result.error?.includes('rate limit') || result.error?.includes('too many')) {
+          setError("Too many password reset attempts. Please wait a few minutes before trying again.");
+          setIsRateLimited(true);
+          setRateLimitCountdown(300); // 5 minutes countdown
+        } else {
+          setError(result.error || "Failed to send password reset email. Please try again.");
+        }
       }
-    } else {
-      setSuccess("Password reset email sent! Please check your email (including spam folder) for instructions.");
+    } catch (error) {
+      console.error('Password reset error:', error);
+      setError("An unexpected error occurred. Please try again.");
     }
   };
 

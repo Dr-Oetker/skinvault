@@ -10,7 +10,6 @@ interface AuthState {
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
   register: (email: string, password: string) => Promise<{ error: any } | undefined>;
-  resetPassword: (email: string) => Promise<{ error: any } | undefined>;
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -43,14 +42,7 @@ export const useAuth = create<AuthState>((set) => ({
     }
     return { error };
   },
-  resetPassword: async (email) => {
-    set({ loading: true });
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    set({ loading: false });
-    return { error };
-  },
+
   logout: async () => {
     await supabase.auth.signOut();
     set({ user: null });
