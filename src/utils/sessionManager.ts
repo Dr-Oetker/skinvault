@@ -40,6 +40,15 @@ export const initializeSessionManager = () => {
             authStore.user = session.user;
           }
           break;
+          
+        case 'INITIAL_SESSION':
+          // Handle initial session state
+          if (session?.user) {
+            authStore.user = session.user;
+          } else {
+            authStore.user = null;
+          }
+          break;
       }
     }
   );

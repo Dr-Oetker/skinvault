@@ -5,6 +5,11 @@ const getApiBaseUrl = (): string => {
     return import.meta.env.VITE_API_URL;
   }
   
+  // In development, use a mock response
+  if (import.meta.env.DEV) {
+    return '/api'; // This will be handled by the mock below
+  }
+  
   // Auto-detect based on current domain
   const currentDomain = window.location.origin;
   return `${currentDomain}/api`;
@@ -31,6 +36,27 @@ export interface PasswordResetResponse {
 export class PasswordResetService {
   private static async makeRequest(data: PasswordResetRequest): Promise<PasswordResetResponse> {
     try {
+      // In development, provide a mock response
+      if (import.meta.env.DEV) {
+        console.log('Development mode: Mocking password reset request', data);
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        if (data.action === 'request') {
+          return {
+            success: true,
+            message: 'Password reset email sent (development mock)',
+            resetUrl: `http://localhost:5173/reset-password?token=mock_token_${Date.now()}`
+          };
+        }
+        
+        return {
+          success: true,
+          message: 'Development mock response'
+        };
+      }
+
       const response = await fetch(`${API_BASE_URL}/password-reset`, {
         method: 'POST',
         headers: {
