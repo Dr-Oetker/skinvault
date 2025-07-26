@@ -58,8 +58,7 @@ export const useAuth = create<AuthState>((set) => ({
       
       if (error) {
         console.error('Session check error:', error);
-        // If there's an auth error, clear the session
-        await supabase.auth.signOut();
+        // Don't sign out on every error, just clear the user state
         set({ user: null, loading: false });
         return;
       }
