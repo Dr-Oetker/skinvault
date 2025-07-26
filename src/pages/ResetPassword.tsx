@@ -13,8 +13,33 @@ export default function ResetPassword() {
   const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
+    // Clear any existing session data to prevent auto-login issues
+    const clearExistingSession = () => {
+      try {
+        // Clear Supabase session data
+        localStorage.removeItem('sb-skinvault-web-auth-token');
+        sessionStorage.clear();
+        
+        // Clear any other auth-related data
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.includes('supabase') || key.includes('auth') || key.includes('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        console.log("Cleared existing session data");
+      } catch (error) {
+        console.error("Error clearing session data:", error);
+      }
+    };
+    
+    // Clear session data first
+    clearExistingSession();
+    
     // Get URL parameters
     const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
     const accessToken = urlParams.get("access_token");
     const refreshToken = urlParams.get("refresh_token");
     const type = urlParams.get("type");
@@ -23,6 +48,7 @@ export default function ResetPassword() {
     const hash = window.location.hash;
     const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
     const hashAccessToken = hashParams.get("access_token");
+    const hashCode = hashParams.get("code");
     
     console.log("Reset Password Debug Info:", {
       urlParams: Object.fromEntries(urlParams.entries()),
@@ -35,22 +61,46 @@ export default function ResetPassword() {
     setDebugInfo(`
       URL: ${window.location.href}
       Type: ${type}
+      Code from URL: ${code ? 'Present' : 'Missing'}
+      Code from Hash: ${hashCode ? 'Present' : 'Missing'}
       Access Token from URL: ${accessToken ? 'Present' : 'Missing'}
       Access Token from Hash: ${hashAccessToken ? 'Present' : 'Missing'}
       Refresh Token: ${refreshToken ? 'Present' : 'Missing'}
     `);
 
-    // Use token from URL params first, then hash
-    const finalToken = accessToken || hashAccessToken;
+    // Handle different token formats
+    let finalToken = null;
+    
+    if (code) {
+      // Supabase sends a code that needs to be exchanged for a session
+      console.log("Found code parameter, exchanging for session...");
+      finalToken = code;
+    } else if (accessToken || hashAccessToken) {
+      // Direct access token
+      finalToken = accessToken || hashAccessToken;
+    }
+    
     setToken(finalToken);
     
     if (finalToken) {
-      // Set the session for Supabase client
-      const session = {
-        access_token: finalToken,
-        refresh_token: refreshToken || finalToken
-      };
-      supabase.auth.setSession(session);
+      if (code) {
+        // Exchange code for session
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (error) {
+            console.error("Error exchanging code for session:", error);
+            setError("Failed to validate reset link. Please try again.");
+          } else {
+            console.log("Successfully exchanged code for session");
+          }
+        });
+      } else {
+        // Direct token - set session
+        const session = {
+          access_token: finalToken,
+          refresh_token: refreshToken || finalToken
+        };
+        supabase.auth.setSession(session);
+      }
     }
   }, []);
 
@@ -71,13 +121,57 @@ export default function ResetPassword() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) setError(error.message);
-    else {
-      setSuccess(true);
-      setMessage("Password updated! You can now log in.");
+    
+    try {
+      // Check if we have a valid session
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        // Try to exchange code for session if we have a code
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get("code");
+        
+        if (code) {
+          console.log("Attempting to exchange code for session...");
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (exchangeError) {
+            console.error("Error exchanging code:", exchangeError);
+            setError("Invalid or expired reset link. Please request a new one.");
+            setLoading(false);
+            return;
+          }
+          
+          console.log("Successfully exchanged code for session");
+        } else {
+          setError("Invalid reset link. Please request a new password reset.");
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // Now update the password
+      const { error } = await supabase.auth.updateUser({ password });
+      
+      if (error) {
+        console.error("Password update error:", error);
+        setError(error.message);
+      } else {
+        setSuccess(true);
+        setMessage("Password updated successfully! You can now log in with your new password.");
+        
+        // Clear any session data to prevent auto-login issues
+        setTimeout(() => {
+          supabase.auth.signOut();
+          window.location.href = '/login';
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      setError("An unexpected error occurred. Please try again.");
     }
+    
+    setLoading(false);
   };
 
   if (!token) {

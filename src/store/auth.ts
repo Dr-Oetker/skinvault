@@ -68,6 +68,13 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
   checkSession: async () => {
+    // Don't auto-check session if we're on the reset password page
+    if (window.location.pathname === '/reset-password') {
+      console.log('Skipping session check on reset password page');
+      set({ loading: false });
+      return;
+    }
+    
     set({ loading: true });
     try {
       const { data, error } = await supabase.auth.getUser();
