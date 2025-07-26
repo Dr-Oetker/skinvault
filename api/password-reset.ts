@@ -20,10 +20,24 @@ const generateResetToken = (): string => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Enable CORS for all origins
+  const allowedOrigins = [
+    'https://skinvault.app',
+    'https://www.skinvault.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -39,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     switch (action) {
       case 'request':
-        return await handlePasswordResetRequest(email, res);
+        return await handlePasswordResetRequest(email, res, req);
       case 'reset':
         return await handlePasswordReset(token, newPassword, res);
       case 'validate':
@@ -53,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function handlePasswordResetRequest(email: string, res: VercelResponse) {
+async function handlePasswordResetRequest(email: string, res: VercelResponse, req: VercelRequest) {
   try {
     // Get user by email
     const { data: userData, error: userError } = await supabase
@@ -85,8 +99,10 @@ async function handlePasswordResetRequest(email: string, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to create reset token' });
     }
 
-    // Send email with reset link
-    const resetUrl = `${process.env.VITE_APP_URL || 'https://skinvault.app'}/reset-password?token=${token}`;
+    // Send email with reset link - use the same domain as the request
+    const requestOrigin = req.headers.origin || req.headers.host;
+    const baseUrl = requestOrigin ? `https://${requestOrigin.replace(/^https?:\/\//, '')}` : (process.env.VITE_APP_URL || 'https://skinvault.app');
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
     
     // Initialize email service
     const emailConfig = getDefaultEmailConfig();

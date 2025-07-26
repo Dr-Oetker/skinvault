@@ -1,5 +1,16 @@
 // Password reset service for client-side operations
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://skinvault.app/api';
+const getApiBaseUrl = (): string => {
+  // Use environment variable if set
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Auto-detect based on current domain
+  const currentDomain = window.location.origin;
+  return `${currentDomain}/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface PasswordResetRequest {
   action: 'request' | 'reset' | 'validate';
