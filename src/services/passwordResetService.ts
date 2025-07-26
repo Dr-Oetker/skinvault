@@ -65,12 +65,22 @@ export class PasswordResetService {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      // Handle non-JSON responses
+      let result;
+      try {
+        result = await response.json();
+      } catch (error) {
+        console.error('Failed to parse JSON response:', error);
+        return {
+          success: false,
+          error: `Server error: ${response.status} ${response.statusText}`,
+        };
+      }
 
       if (!response.ok) {
         return {
           success: false,
-          error: result.error || 'Request failed',
+          error: result.error || `Request failed: ${response.status}`,
         };
       }
 

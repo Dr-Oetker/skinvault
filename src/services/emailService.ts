@@ -96,19 +96,27 @@ class EmailService {
     }
 
     try {
+      const emailPayload = {
+        from: this.config.fromEmail || 'onboarding@resend.dev',
+        to: [emailData.to],
+        subject: emailData.subject,
+        html: emailData.html,
+        text: emailData.text
+      };
+
+      console.log('Sending email to Resend:', {
+        from: emailPayload.from,
+        to: emailPayload.to,
+        subject: emailPayload.subject
+      });
+
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          from: this.config.fromEmail || 'noreply@skinvault.app',
-          to: [emailData.to],
-          subject: emailData.subject,
-          html: emailData.html,
-          text: emailData.text
-        })
+        body: JSON.stringify(emailPayload)
       });
 
       if (!response.ok) {
@@ -117,6 +125,8 @@ class EmailService {
         return false;
       }
 
+      const result = await response.json();
+      console.log('Resend email sent successfully:', result);
       return true;
     } catch (error) {
       console.error('Resend request error:', error);

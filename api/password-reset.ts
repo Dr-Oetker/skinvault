@@ -20,49 +20,56 @@ const generateResetToken = (): string => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS for all origins
-  const allowedOrigins = [
-    'https://skinvault.app',
-    'https://www.skinvault.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ];
-  
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { action, email, token, newPassword } = req.body;
-
   try {
-    switch (action) {
-      case 'request':
-        return await handlePasswordResetRequest(email, res, req);
-      case 'reset':
-        return await handlePasswordReset(token, newPassword, res);
-      case 'validate':
-        return await handleTokenValidation(token, res);
-      default:
-        return res.status(400).json({ error: 'Invalid action' });
+    // Enable CORS for all origins
+    const allowedOrigins = [
+      'https://skinvault.app',
+      'https://www.skinvault.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ];
+    
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const { action, email, token, newPassword } = req.body;
+    
+    console.log('Password reset request:', { action, email: email ? '***' : undefined });
+
+      try {
+      switch (action) {
+        case 'request':
+          return await handlePasswordResetRequest(email, res, req);
+        case 'reset':
+          return await handlePasswordReset(token, newPassword, res);
+        case 'validate':
+          return await handleTokenValidation(token, res);
+        default:
+          return res.status(400).json({ error: 'Invalid action' });
+      }
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   } catch (error) {
-    console.error('Password reset error:', error);
+    console.error('API handler error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -106,6 +113,12 @@ async function handlePasswordResetRequest(email: string, res: VercelResponse, re
     
     // Initialize email service
     const emailConfig = getDefaultEmailConfig();
+    console.log('Email config:', {
+      provider: emailConfig.provider,
+      fromEmail: emailConfig.fromEmail,
+      apiKey: emailConfig.apiKey ? '***' : 'MISSING'
+    });
+    
     const emailService = createEmailService(emailConfig);
     
     // Get user's name if available
