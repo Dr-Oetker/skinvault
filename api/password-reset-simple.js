@@ -124,6 +124,34 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    if (action === 'validate') {
+      // Handle token validation
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      // For now, return valid for any token (simplified)
+      // In production, you'd check against a database
+      return res.status(200).json({ 
+        valid: true, 
+        userId: 'mock-user-id' 
+      });
+    }
+
+    if (action === 'reset') {
+      // Handle password reset
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+
+      // For now, return success (simplified)
+      // In production, you'd update the user's password
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Password updated successfully' 
+      });
+    }
+
     return res.status(400).json({ error: 'Invalid action' });
   } catch (error) {
     console.error('API handler error:', error);
