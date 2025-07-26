@@ -46,7 +46,7 @@ export const useAuth = create<AuthState>((set) => ({
   resetPassword: async (email) => {
     set({ loading: true });
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://skinvault.app/reset-password',
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     set({ loading: false });
     return { error };
