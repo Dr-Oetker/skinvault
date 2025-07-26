@@ -126,10 +126,18 @@ class EmailService {
 const createEmailService = (config: EmailConfig) => new EmailService(config);
 
 // Initialize Supabase with service role key for admin operations
-const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+// Check for required environment variables
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('Missing required environment variables:', {
+    supabaseUrl: !!supabaseUrl,
+    supabaseServiceKey: !!supabaseServiceKey
+  });
+}
+
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
@@ -143,6 +151,28 @@ const generateResetToken = (): string => {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    console.log('API handler started');
+    
+    // Check environment variables
+    const requiredEnvVars = {
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      EMAIL_API_KEY: process.env.EMAIL_API_KEY,
+      EMAIL_FROM: process.env.EMAIL_FROM
+    };
+    
+    const missingVars = Object.entries(requiredEnvVars)
+      .filter(([key, value]) => !value)
+      .map(([key]) => key);
+    
+    if (missingVars.length > 0) {
+      console.error('Missing environment variables:', missingVars);
+      return res.status(500).json({ 
+        error: 'Server configuration error',
+        details: `Missing: ${missingVars.join(', ')}`
+      });
+    }
+    
     // Enable CORS for all origins
     const allowedOrigins = [
       'https://skinvault.app',
