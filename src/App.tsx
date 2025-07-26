@@ -22,11 +22,17 @@ import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
 import CookieSettings from "./pages/CookieSettings";
 import Category from "./pages/Category";
+import Error404 from "./pages/Error404";
+import Error500 from "./pages/Error500";
+import Error403 from "./pages/Error403";
+import Error from "./pages/Error";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="sticker-crafts" element={<StickerCrafts />} />
@@ -50,9 +56,18 @@ function App() {
           <Route path="terms-of-service" element={<TermsOfService />} />
           <Route path="contact" element={<Contact />} />
           <Route path="cookie-settings" element={<CookieSettings />} />
+          
+          {/* Error Pages */}
+          <Route path="404" element={<Error404 />} />
+          <Route path="500" element={<Error500 />} />
+          <Route path="403" element={<Error403 />} />
+          
+          {/* Catch-all route for 404 */}
+          <Route path="*" element={<Error404 />} />
         </Route>
       </Routes>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

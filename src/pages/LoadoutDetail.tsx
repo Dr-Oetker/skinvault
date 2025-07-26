@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getSideImage, getWeaponImage } from '../utils/images';
+import { handleApiError, ErrorType } from '../utils/errorHandling';
 
 // Weapon interface removed as it's not used
 
@@ -292,20 +293,38 @@ export default function LoadoutDetail() {
     const fetchData = async () => {
       setLoading(true);
       
-      // Fetch loadout details
-      const tableName = loadoutType === 'user' ? 'user_loadouts' : 'official_loadouts';
-      const { data: loadoutData } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('id', loadoutId)
-        .single();
-      
-      if (loadoutData) {
-        console.log('Loaded loadout data:', loadoutData);
-        setLoadout({ ...loadoutData, loadout_type: loadoutType as 'user' | 'official' });
+      try {
+        // Fetch loadout details
+        const tableName = loadoutType === 'user' ? 'user_loadouts' : 'official_loadouts';
+        const { data: loadoutData, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq('id', loadoutId)
+          .single();
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // No rows returned - loadout not found
+            handleApiError({ status: 404, message: 'Loadout not found' }, navigate);
+            return;
+          }
+          throw error;
+        }
+        
+        if (loadoutData) {
+          console.log('Loaded loadout data:', loadoutData);
+          setLoadout({ ...loadoutData, loadout_type: loadoutType as 'user' | 'official' });
+        } else {
+          handleApiError({ status: 404, message: 'Loadout not found' }, navigate);
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching loadout:', error);
+        handleApiError(error, navigate);
+        return;
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     if (loadoutId && loadoutType) {
