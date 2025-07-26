@@ -45,8 +45,16 @@ export const useAuth = create<AuthState>((set) => ({
   },
   resetPassword: async (email) => {
     set({ loading: true });
+    
+    // Use the production domain if available, otherwise fallback to current origin
+    const redirectUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://skinvault.app/reset-password'
+      : `${window.location.origin}/reset-password`;
+    
+    console.log('Password reset redirect URL:', redirectUrl);
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: redirectUrl,
     });
     set({ loading: false });
     return { error };
