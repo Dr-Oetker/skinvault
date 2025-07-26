@@ -3,14 +3,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "installCommand": "npm install --omit=optional",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    },
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
+
   "rewrites": [
     {
       "source": "/api/(.*)",
