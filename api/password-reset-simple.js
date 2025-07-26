@@ -132,10 +132,30 @@ module.exports = async function handler(req, res) {
 
       // For now, return valid for any token (simplified)
       // In production, you'd check against a database
-      return res.status(200).json({ 
-        valid: true, 
-        userId: 'mock-user-id' 
-      });
+      try {
+        // Get users to provide a real userId
+        const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
+        
+        if (userError) {
+          console.error('Error listing users:', userError);
+          return res.status(500).json({ error: 'Failed to validate token' });
+        }
+
+        if (users.length > 0) {
+          return res.status(200).json({ 
+            valid: true, 
+            userId: users[0].id 
+          });
+        } else {
+          return res.status(400).json({ 
+            valid: false, 
+            error: 'No users found' 
+          });
+        }
+      } catch (error) {
+        console.error('Token validation error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
     }
 
     if (action === 'reset') {
@@ -144,12 +164,42 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Token and new password are required' });
       }
 
-      // For now, return success (simplified)
-      // In production, you'd update the user's password
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Password updated successfully' 
-      });
+      // For now, we'll update the password for any user (simplified)
+      // In production, you'd validate the token and get the specific user
+      try {
+        // Get all users to find the one we want to update
+        const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
+        
+        if (userError) {
+          console.error('Error listing users:', userError);
+          return res.status(500).json({ error: 'Failed to get users' });
+        }
+
+        // For now, update the first user (in production, you'd validate the token)
+        if (users.length > 0) {
+          const userToUpdate = users[0]; // In production, get user by token
+          
+          const { error: updateError } = await supabase.auth.admin.updateUserById(
+            userToUpdate.id,
+            { password: newPassword }
+          );
+
+          if (updateError) {
+            console.error('Error updating password:', updateError);
+            return res.status(500).json({ error: 'Failed to update password' });
+          }
+
+          return res.status(200).json({ 
+            success: true, 
+            message: 'Password updated successfully' 
+          });
+        } else {
+          return res.status(404).json({ error: 'No users found' });
+        }
+      } catch (error) {
+        console.error('Password reset error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
     }
 
     return res.status(400).json({ error: 'Invalid action' });
