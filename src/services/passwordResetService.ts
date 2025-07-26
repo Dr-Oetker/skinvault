@@ -17,6 +17,9 @@ const getApiBaseUrl = (): string => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// Use the simple API endpoint for now
+const API_ENDPOINT = '/password-reset-simple';
+
 export interface PasswordResetRequest {
   action: 'request' | 'reset' | 'validate';
   email?: string;
@@ -57,7 +60,7 @@ export class PasswordResetService {
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/password-reset`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINT}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

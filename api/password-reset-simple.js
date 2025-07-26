@@ -90,6 +90,19 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Email is required' });
       }
 
+      // Check if user exists using Supabase auth API
+      const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
+      
+      if (userError) {
+        console.error('Error listing users:', userError);
+        return res.status(500).json({ error: 'Failed to check user' });
+      }
+
+      const user = users.find(u => u.email === email);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
       // Generate token and send email
       const resetToken = generateResetToken();
       const resetUrl = `https://www.skinvault.app/reset-password?token=${resetToken}`;
