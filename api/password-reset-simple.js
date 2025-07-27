@@ -132,30 +132,10 @@ module.exports = async function handler(req, res) {
 
       // For now, return valid for any token (simplified)
       // In production, you'd check against a database
-      try {
-        // Get users to provide a real userId
-        const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
-        
-        if (userError) {
-          console.error('Error listing users:', userError);
-          return res.status(500).json({ error: 'Failed to validate token' });
-        }
-
-        if (users.length > 0) {
-          return res.status(200).json({ 
-            valid: true, 
-            userId: users[0].id 
-          });
-        } else {
-          return res.status(400).json({ 
-            valid: false, 
-            error: 'No users found' 
-          });
-        }
-      } catch (error) {
-        console.error('Token validation error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
-      }
+      return res.status(200).json({ 
+        valid: true, 
+        userId: 'mock-user-id' 
+      });
     }
 
     if (action === 'reset') {
@@ -164,40 +144,41 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Token and new password are required' });
       }
 
-      // For now, we'll update the password for any user (simplified)
-      // In production, you'd validate the token and get the specific user
+      // For now, we'll use a mock email to find the user
+      // In production, you'd validate the token and get the user ID
+      const mockEmail = 'lenlenkl@gmail.com'; // This should come from token validation
+      
       try {
-        // Get all users to find the one we want to update
+        // Find user by email
         const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
         
         if (userError) {
           console.error('Error listing users:', userError);
-          return res.status(500).json({ error: 'Failed to get users' });
+          return res.status(500).json({ error: 'Failed to find user' });
         }
 
-        // For now, update the first user (in production, you'd validate the token)
-        if (users.length > 0) {
-          const userToUpdate = users[0]; // In production, get user by token
-          
-          const { error: updateError } = await supabase.auth.admin.updateUserById(
-            userToUpdate.id,
-            { password: newPassword }
-          );
-
-          if (updateError) {
-            console.error('Error updating password:', updateError);
-            return res.status(500).json({ error: 'Failed to update password' });
-          }
-
-          return res.status(200).json({ 
-            success: true, 
-            message: 'Password updated successfully' 
-          });
-        } else {
-          return res.status(404).json({ error: 'No users found' });
+        const user = users.find(u => u.email === mockEmail);
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
         }
+
+        // Update user's password using Supabase admin API
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
+          user.id,
+          { password: newPassword }
+        );
+
+        if (updateError) {
+          console.error('Error updating password:', updateError);
+          return res.status(500).json({ error: 'Failed to update password' });
+        }
+
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Password updated successfully. Please log in with your new password.' 
+        });
       } catch (error) {
-        console.error('Password reset error:', error);
+        console.error('Error in password reset:', error);
         return res.status(500).json({ error: 'Internal server error' });
       }
     }

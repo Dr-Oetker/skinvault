@@ -71,10 +71,10 @@ export default function Login() {
         }
       } else {
         if (result.error?.includes('rate limit') || result.error?.includes('too many')) {
-          setError("Too many password reset attempts. Please wait a few minutes before trying again.");
-          setIsRateLimited(true);
-          setRateLimitCountdown(300); // 5 minutes countdown
-        } else {
+        setError("Too many password reset attempts. Please wait a few minutes before trying again.");
+        setIsRateLimited(true);
+        setRateLimitCountdown(300); // 5 minutes countdown
+      } else {
           setError(result.error || "Failed to send password reset email. Please try again.");
         }
       }
