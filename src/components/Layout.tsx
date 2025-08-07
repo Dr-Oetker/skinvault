@@ -36,10 +36,9 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Scroll to top on route change
+  // Show loading indicator on route change (but don't auto-scroll)
   useEffect(() => {
     setIsPageLoading(true);
-    window.scrollTo({ top: 0, behavior: 'instant' });
     
     // Hide loading indicator after a short delay to allow content to load
     const timer = setTimeout(() => {

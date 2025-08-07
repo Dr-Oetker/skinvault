@@ -5,6 +5,7 @@ import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getSideImage, getWeaponImage } from '../utils/images';
 import { handleApiError, ErrorType } from '../utils/errorHandling';
+import { scrollPositionManager } from '../utils/scrollPosition';
 
 // Weapon interface removed as it's not used
 
@@ -288,6 +289,16 @@ export default function LoadoutDetail() {
   const [showWeaponTypeModal, setShowWeaponTypeModal] = useState<null | 'knives' | 'gloves'>(null);
   const [weaponTypeOptions, setWeaponTypeOptions] = useState<{ id: string; name: string }[]>([]);
   // pendingSlot removed as it's not used
+
+  // Scroll position management
+  const saveScrollPosition = (e: React.MouseEvent) => {
+    e.preventDefault();
+    scrollPositionManager.saveCurrentPosition();
+    // Get the href from the clicked element
+    const href = (e.currentTarget as HTMLAnchorElement).href;
+    // Navigate after saving position
+    window.location.href = href;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -873,10 +884,10 @@ export default function LoadoutDetail() {
             <h3 className="font-semibold mb-3 text-center w-full text-lg">Knives</h3>
             {loadout[`knives_${activeSide}side` as keyof Loadout] && selectedSkinsInfo[`knives_${activeSide}side`] ? (
               <div className="space-y-2 w-full flex flex-col items-center">
-                <a href={`/skins/${selectedSkinsInfo[`knives_${activeSide}side`]?.id}`} className="block" tabIndex={-1}>
+                <a href={`/skins/${selectedSkinsInfo[`knives_${activeSide}side`]?.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                   <img src={selectedSkinsInfo[`knives_${activeSide}side`]?.image} alt={selectedSkinsInfo[`knives_${activeSide}side`]?.name} className="w-32 h-32 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
                 </a>
-                <a href={`/skins/${selectedSkinsInfo[`knives_${activeSide}side`]?.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1}>{selectedSkinsInfo[`knives_${activeSide}side`]?.name}</a>
+                <a href={`/skins/${selectedSkinsInfo[`knives_${activeSide}side`]?.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1} onClick={saveScrollPosition}>{selectedSkinsInfo[`knives_${activeSide}side`]?.name}</a>
                 {selectedSkinsInfo[`knives_${activeSide}side`]?.wear && <div className="text-xs text-gray-500 text-center">{selectedSkinsInfo[`knives_${activeSide}side`]?.wear}</div>}
                 {selectedSkinsInfo[`knives_${activeSide}side`]?.price !== undefined && (
                   <div className="text-xs text-green-700 font-semibold text-center">${selectedSkinsInfo[`knives_${activeSide}side`]?.price?.toFixed(2)}</div>
@@ -893,10 +904,10 @@ export default function LoadoutDetail() {
             <h3 className="font-semibold mb-3 text-center w-full text-lg">Gloves</h3>
             {loadout[`gloves_${activeSide}side` as keyof Loadout] && selectedSkinsInfo[`gloves_${activeSide}side`] ? (
               <div className="space-y-2 w-full flex flex-col items-center">
-                <a href={`/skins/${selectedSkinsInfo[`gloves_${activeSide}side`]?.id}`} className="block" tabIndex={-1}>
+                <a href={`/skins/${selectedSkinsInfo[`gloves_${activeSide}side`]?.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                   <img src={selectedSkinsInfo[`gloves_${activeSide}side`]?.image} alt={selectedSkinsInfo[`gloves_${activeSide}side`]?.name} className="w-32 h-32 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
                 </a>
-                <a href={`/skins/${selectedSkinsInfo[`gloves_${activeSide}side`]?.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1}>{selectedSkinsInfo[`gloves_${activeSide}side`]?.name}</a>
+                <a href={`/skins/${selectedSkinsInfo[`gloves_${activeSide}side`]?.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1} onClick={saveScrollPosition}>{selectedSkinsInfo[`gloves_${activeSide}side`]?.name}</a>
                 {selectedSkinsInfo[`gloves_${activeSide}side`]?.wear && <div className="text-xs text-gray-500 text-center">{selectedSkinsInfo[`gloves_${activeSide}side`]?.wear}</div>}
                 {selectedSkinsInfo[`gloves_${activeSide}side`]?.price !== undefined && (
                   <div className="text-xs text-green-700 font-semibold text-center">${selectedSkinsInfo[`gloves_${activeSide}side`]?.price?.toFixed(2)}</div>
@@ -932,10 +943,10 @@ export default function LoadoutDetail() {
                     <div className="w-full flex flex-col items-center">
                       {selectedSkinId && skinInfo ? (
                         <>
-                          <a href={`/skins/${skinInfo.id}`} className="block" tabIndex={-1}>
+                          <a href={`/skins/${skinInfo.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                             <img src={skinInfo.image} alt={skinInfo.name} className="w-24 h-24 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
                           </a>
-                          <a href={`/skins/${skinInfo.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1}>{skinInfo.name}</a>
+                          <a href={`/skins/${skinInfo.id}`} className="text-xs font-medium text-center hover:underline" tabIndex={-1} onClick={saveScrollPosition}>{skinInfo.name}</a>
                           {skinInfo.wear && <div className="text-xs text-gray-500 text-center">{skinInfo.wear}</div>}
                           {skinInfo.price !== undefined && (
                             <div className="text-xs text-green-700 font-semibold text-center">${skinInfo.price.toFixed(2)}</div>

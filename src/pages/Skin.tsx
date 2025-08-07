@@ -5,6 +5,7 @@ import { useAuth } from "../store/auth";
 import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { scrollPositionManager } from '../utils/scrollPosition';
 
 interface WearEntry {
   wear: string;
@@ -56,6 +57,10 @@ export default function SkinDetail() {
   const [errorMsg, setErrorMsg] = useState("");
   const [selectedWear, setSelectedWear] = useState("");
   const [boughtAt, setBoughtAt] = useState("");
+  // Add state for image modal
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageModalUrl, setImageModalUrl] = useState<string|null>(null);
+  const [imageModalScrollY, setImageModalScrollY] = useState<number | null>(null);
 
   // Add wear ranges and helper functions
   const wearRanges = {
@@ -96,6 +101,17 @@ export default function SkinDetail() {
     setSelectedWear(wear);
     setWearValue(""); // Clear float when wear is manually selected
   };
+
+  const handleImageModalOpen = (imageUrl: string) => {
+    setImageModalScrollY(window.scrollY);
+    setShowImageModal(true);
+    setImageModalUrl(imageUrl);
+  };
+
+  // Scroll to top when entering skin detail page
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -196,7 +212,21 @@ export default function SkinDetail() {
     <div className="max-w-2xl mx-auto py-8 px-2 sm:px-6">
       <div className="glass-card p-6 md:p-8 shadow-dark-lg border border-dark-border-primary/60 mb-8">
       <div className="flex flex-col md:flex-row gap-8 items-center mb-6">
-          <img src={skin.image} alt={skin.name} className="w-64 h-64 object-contain rounded-xl border border-dark-border-primary/40 shadow bg-dark-bg-secondary" />
+          <div className="relative w-64 h-64">
+            <img src={skin.image} alt={skin.name} className="w-64 h-64 object-contain rounded-xl border border-dark-border-primary/40 shadow bg-dark-bg-secondary" />
+            <span 
+              role="button" 
+              tabIndex={0} 
+              onClick={() => handleImageModalOpen(skin.image)}
+              className="absolute bottom-2 right-2 bg-black/60 rounded-full p-2 hover:bg-black/80 focus:outline-none cursor-pointer transition-colors" 
+              title="Enlarge image"
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleImageModalOpen(skin.image); } }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+              </svg>
+            </span>
+          </div>
           <div className="flex-1 w-full">
             <h1 className="text-3xl font-bold mb-2 text-dark-text-primary tracking-tight">{skin.name}</h1>
             <div className="mb-2 text-dark-text-tertiary text-base">{renderDescription(skin.description)}</div>
@@ -310,6 +340,31 @@ export default function SkinDetail() {
           successMsg={successMsg}
           floatInputFullWidth={true}
         />
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && imageModalUrl && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setShowImageModal(false)}>
+          <div
+            className="relative bg-dark-bg-primary rounded-2xl max-w-2xl w-full p-4 mx-auto"
+            style={imageModalScrollY !== null ? { 
+              position: 'absolute',
+              top: imageModalScrollY + 20,
+              left: '50%',
+              transform: 'translateX(-50%)'
+            } : {}}
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setShowImageModal(false)} 
+              className="absolute top-2 right-2 text-white text-2xl bg-black/60 rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/80 focus:outline-none" 
+              title="Close"
+            >
+              &times;
+            </button>
+            <img src={imageModalUrl} alt="Enlarged skin" className="w-full h-auto max-h-[80vh] rounded shadow-lg mx-auto" />
+          </div>
+        </div>
       )}
       </div>
     </div>

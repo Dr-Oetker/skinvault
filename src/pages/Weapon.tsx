@@ -5,6 +5,7 @@ import { useAuth } from "../store/auth";
 import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import SEO, { SEOPresets } from '../components/SEO';
+import { useScrollPosition } from '../utils/scrollPosition';
 
 interface WearEntry {
   wear: string;
@@ -49,6 +50,9 @@ export default function Weapon() {
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showCratesDropdown, setShowCratesDropdown] = useState(false);
   const [showCollectionsDropdown, setShowCollectionsDropdown] = useState(false);
+
+  // Scroll position management
+  const { savePosition, restorePosition } = useScrollPosition();
 
   // Add wear ranges and helper functions
   const wearRanges = {
@@ -150,6 +154,31 @@ export default function Weapon() {
     };
     if (weaponName) fetchData();
   }, [weaponName]);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    if (!loading && skins.length > 0) {
+      const timer = setTimeout(() => {
+        console.log('Attempting to restore scroll position...');
+        restorePosition();
+      }, 1000); // Even longer delay to ensure content is fully rendered
+      
+      return () => clearTimeout(timer);
+    }
+  }, [restorePosition, loading, skins.length]); // Also depend on skins being loaded
+
+  // Save scroll position before unmounting
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      savePosition();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      savePosition();
+    };
+  }, [savePosition]);
 
   // Dropdown close logic for each filter
   useEffect(() => {
@@ -619,7 +648,17 @@ export default function Weapon() {
               const isFavorited = favoriteSkinIds.includes(skin.id);
               return (
                 <div key={skin.id} className="relative h-full">
-                  <Link to={`/skins/${skin.id}`} className="block w-full h-full">
+                  <Link 
+                    to={`/skins/${skin.id}`} 
+                    className="block w-full h-full"
+                    onClick={(e) => {
+                      // Save current scroll position before navigating to detail
+                      e.preventDefault();
+                      savePosition();
+                      // Navigate after saving position
+                      window.location.href = `/skins/${skin.id}`;
+                    }}
+                  >
                     <div className="glass-card flex flex-col items-center justify-between h-full min-h-[340px] rounded-2xl p-6 shadow-dark-lg border border-dark-border-primary/60 group hover:scale-105 hover:shadow-dark-lg transition-all duration-200">
                       <div className="flex w-full justify-between items-center mb-2">
                         <div className="flex-1"></div>

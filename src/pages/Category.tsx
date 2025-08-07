@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import SEO, { SEOPresets } from '../components/SEO';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getWeaponImage } from '../utils/images';
+import { useScrollPosition } from '../utils/scrollPosition';
 
 interface Weapon {
   id: string;
@@ -24,6 +25,9 @@ export default function Category() {
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Scroll position management
+  const { savePosition, restorePosition } = useScrollPosition();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,6 +88,31 @@ export default function Category() {
       fetchData();
     }
   }, [categoryName]);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    if (!loading && weapons.length > 0) {
+      const timer = setTimeout(() => {
+        console.log('Attempting to restore scroll position...');
+        restorePosition();
+      }, 1000); // Even longer delay to ensure content is fully rendered
+      
+      return () => clearTimeout(timer);
+    }
+  }, [restorePosition, loading, weapons.length]); // Also depend on weapons being loaded
+
+  // Save scroll position before unmounting
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      savePosition();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      savePosition();
+    };
+  }, [savePosition]);
 
   if (loading) {
     return (
@@ -160,6 +189,13 @@ export default function Category() {
               key={weapon.id} 
               to={`/weapons/${encodeURIComponent(weapon.name)}`}
               className="block group"
+              onClick={(e) => {
+                // Save current scroll position before navigating to weapon page
+                e.preventDefault();
+                savePosition();
+                // Navigate after saving position
+                window.location.href = `/weapons/${encodeURIComponent(weapon.name)}`;
+              }}
             >
               <div className="glass-card rounded-2xl p-6 h-48 flex flex-col items-center justify-center hover:scale-105 hover:shadow-dark-lg transition-all duration-200 border border-dark-border-primary/60">
                 <div className="w-20 h-20 mb-4 rounded-xl border border-dark-border-primary/60 bg-dark-bg-tertiary flex items-center justify-center overflow-hidden flex-shrink-0">
