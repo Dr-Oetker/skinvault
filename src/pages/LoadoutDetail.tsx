@@ -7,6 +7,7 @@ import { getSideImage, getWeaponImage } from '../utils/images';
 import { handleApiError, ErrorType } from '../utils/errorHandling';
 import { scrollPositionManager } from '../utils/scrollPosition';
 import { selectFrom, updateTable, insertInto, deleteFrom } from '../utils/supabaseApi';
+import { trackLoadoutView } from '../utils/analytics';
 
 // Weapon interface removed as it's not used
 
@@ -327,6 +328,9 @@ export default function LoadoutDetail() {
       if (loadoutData) {
         console.log('Loaded loadout data:', loadoutData);
         setLoadout({ ...loadoutData, loadout_type: loadoutType as 'user' | 'official' });
+        
+        // Track loadout view for analytics
+        trackLoadoutView(loadoutData.id, loadoutType as 'user' | 'official');
         } else {
           handleApiError({ status: 404, message: 'Loadout not found' }, navigate);
           return;

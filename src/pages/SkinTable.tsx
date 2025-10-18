@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import LoadingSkeleton from "../components/LoadingSkeleton";
 import { selectFrom } from "../utils/supabaseApi";
+import { trackTradeUpView } from "../utils/analytics";
 
 interface WearEntry {
   wear: string;
@@ -441,7 +442,8 @@ export default function SkinTable() {
             {tradeUpOpportunities.map((opportunity, index) => (
               <div 
                 key={`${opportunity.collectionName}-${opportunity.wear}-${opportunity.lowerRarity}`}
-                className="bg-dark-bg-tertiary/50 rounded-lg p-3 border border-dark-border-primary/60 hover:bg-dark-bg-tertiary/70 transition-colors"
+                className="bg-dark-bg-tertiary/50 rounded-lg p-3 border border-dark-border-primary/60 hover:bg-dark-bg-tertiary/70 transition-colors cursor-pointer"
+                onClick={() => trackTradeUpView(opportunity.collectionName, opportunity.expectedProfit)}
               >
                 <div className="flex items-center gap-3">
                   {/* Rank Badge */}

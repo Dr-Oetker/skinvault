@@ -7,6 +7,7 @@ import ResellTrackerModal from '../components/ResellTrackerModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { scrollPositionManager } from '../utils/scrollPosition';
 import { selectFrom, insertInto } from '../utils/supabaseApi';
+import { trackSkinView, trackSkinFavorite, trackResellTrackerAdd } from '../utils/analytics';
 
 interface WearEntry {
   wear: string;
@@ -125,6 +126,12 @@ export default function SkinDetail() {
       });
       setSkin(data || null);
       setLoading(false);
+      
+      // Track skin view for analytics
+      if (data) {
+        const skinPrice = data.wears_extended?.find((w: WearEntry) => w.variant === 'normal' && w.enabled)?.price;
+        trackSkinView(data.name, skinPrice);
+      }
     };
     if (skinId) fetchData();
   }, [skinId]);
@@ -136,8 +143,10 @@ export default function SkinDetail() {
     
     if (isFavorited) {
       await removeFavorite(user.id, skin.id);
+      trackSkinFavorite(skin.name, 'remove');
     } else {
       await addFavorite(user.id, skin.id);
+      trackSkinFavorite(skin.name, 'add');
     }
   };
 
@@ -326,6 +335,8 @@ export default function SkinDetail() {
                 setErrorMsg(error.message);
               } else {
                 setSuccessMsg("Resell tracker added!");
+                // Track resell tracker addition for analytics
+                trackResellTrackerAdd(skin?.name || 'Unknown Skin', price);
                 setBuyPrice("");
                 setWearValue("");
                 setNotes("");

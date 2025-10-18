@@ -33,6 +33,7 @@ import { initializeSessionManager, initializeAppSession } from "./utils/sessionM
 import { initializeVisibilityManager, initializeFocusManager } from "./utils/visibilityManager";
 import { setupGlobalErrorHandling } from "./utils/errorRecovery";
 import "./utils/debugHelper";
+import { initGA } from "./utils/analytics";
 
 function App() {
   // Initialize session and visibility managers
@@ -40,6 +41,9 @@ function App() {
     const initializeApp = async () => {
       // Set up global error handling first
       setupGlobalErrorHandling();
+      
+      // Initialize Google Analytics
+      initGA();
       
       // Initialize the app session
       await initializeAppSession();

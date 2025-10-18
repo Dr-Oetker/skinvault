@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import { insertInto } from "../utils/supabaseApi";
+import { trackLoadoutCreate } from "../utils/analytics";
 
 export default function CreateLoadout() {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ export default function CreateLoadout() {
       setError(insertError.message);
       setLoading(false);
     } else if (data) {
+      // Track loadout creation for analytics
+      trackLoadoutCreate('user');
       // Navigate to the new loadout
       navigate(`/loadouts/user/${(data as any)[0].id}`);
     }
