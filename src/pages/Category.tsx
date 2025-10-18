@@ -5,6 +5,7 @@ import SEO, { SEOPresets } from '../components/SEO';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getWeaponImage } from '../utils/images';
 import { useScrollPosition } from '../utils/scrollPosition';
+import { selectFrom } from '../utils/supabaseApi';
 
 interface Weapon {
   id: string;
@@ -34,37 +35,36 @@ export default function Category() {
       setLoading(true);
       
       // Fetch category info
-      const { data: catData } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("name", categoryName)
-        .single();
+      const { data: catData } = await selectFrom("categories", {
+        eq: { name: categoryName },
+        single: true
+      });
       
       setCategory(catData);
 
       // Fetch weapons for this category
-      const { data: weaponsData } = await supabase
-        .from("weapons")
-        .select("id, name, category")
-        .eq("category", categoryName)
-        .order("name");
+      const { data: weaponsData } = await selectFrom("weapons", {
+        select: "id, name, category",
+        eq: { category: categoryName },
+        order: { column: "name" }
+      });
 
       if (weaponsData) {
         // For each weapon, get the first skin image and count all skins
         const weaponsWithImages = await Promise.all(
           weaponsData.map(async (weapon) => {
             // Get first skin image
-            const { data: firstSkinData } = await supabase
-              .from("skins")
-              .select("id, image")
-              .eq("weapon", weapon.name)
-              .limit(1);
+            const { data: firstSkinData } = await selectFrom("skins", {
+              select: "id, image",
+              eq: { weapon: weapon.name },
+              limit: 1
+            });
             
             // Get total count of skins for this weapon
-            const { count: skinCount } = await supabase
-              .from("skins")
-              .select("*", { count: 'exact', head: true })
-              .eq("weapon", weapon.name);
+            const { data: allSkinsData } = await selectFrom("skins", {
+              eq: { weapon: weapon.name }
+            });
+            const skinCount = Array.isArray(allSkinsData) ? allSkinsData.length : 0;
             
             // Create a clean weapon name for fallback image
             const fallbackImage = getWeaponImage(weapon.name);

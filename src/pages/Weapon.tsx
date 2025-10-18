@@ -6,11 +6,13 @@ import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import SEO, { SEOPresets } from '../components/SEO';
 import { useScrollPosition } from '../utils/scrollPosition';
+import { selectFrom, insertInto } from '../utils/supabaseApi';
 
 interface WearEntry {
   wear: string;
   price: number;
   enabled: boolean;
+  variant: 'normal' | 'stattrak' | 'souvenir';
 }
 
 interface Skin {
@@ -74,7 +76,7 @@ export default function Weapon() {
 
   const getPriceForWear = (wear: string): number | null => {
     if (!selectedSkinForResell?.wears_extended) return null;
-    const wearEntry = selectedSkinForResell.wears_extended.find(w => w.wear === wear && w.enabled);
+    const wearEntry = selectedSkinForResell.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === 'normal');
     return wearEntry?.price || null;
   };
 
@@ -145,10 +147,10 @@ export default function Weapon() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: skinsData } = await supabase
-        .from("skins")
-        .select("id, name, image, min_float, max_float, stattrak, souvenir, rarity_color, rarity, wears_extended, crates, collections")
-        .eq("weapon", weaponName);
+      const { data: skinsData } = await selectFrom("skins", {
+        select: "id, name, image, min_float, max_float, stattrak, souvenir, rarity_color, rarity, wears_extended, crates, collections",
+        eq: { weapon: weaponName }
+      });
       setSkins(skinsData || []);
       setLoading(false);
     };
@@ -285,7 +287,7 @@ export default function Weapon() {
           setSaving(false);
           return;
         }
-        const enabled = selectedSkinForResell.wears_extended?.find(w => w.wear === detectedWear && w.enabled);
+        const enabled = selectedSkinForResell.wears_extended?.find(w => w.wear === detectedWear && w.enabled && w.variant === 'normal');
         if (!enabled) {
           setErrorMsg("This float is not possible for this skin.");
           setSaving(false);
@@ -308,10 +310,7 @@ export default function Weapon() {
         setSaving(false);
         return;
       }
-      const { error } = await supabase
-        .from("resell_tracker")
-        .insert([
-          {
+      const { error } = await insertInto("resell_tracker", {
             user_id: user.id,
             skin_id: selectedSkinForResell.id,
             buy_price: price,
@@ -319,8 +318,7 @@ export default function Weapon() {
             wear: wearToSave,
             notes: notes.trim() || null,
             bought_at: boughtAt,
-          },
-        ]);
+          });
       if (error) {
         setErrorMsg(error.message);
       } else {

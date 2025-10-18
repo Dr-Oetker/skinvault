@@ -6,6 +6,8 @@ import { isAdmin } from "../utils/admin";
 import { supabase } from "../supabaseClient";
 import CookieBanner from "./CookieBanner";
 import { logoImage } from '../utils/images';
+import { forceSessionRecovery } from "../utils/sessionManager";
+import { ErrorRecoveryManager } from "../utils/errorRecovery";
 
 interface Category {
   id: string;
@@ -35,6 +37,8 @@ export default function Layout() {
   const { acceptCookies, declineCookies } = useCookies();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [showEmergencyRecovery, setShowEmergencyRecovery] = useState(false);
 
   // Show loading indicator on route change (but don't auto-scroll)
   useEffect(() => {
@@ -61,6 +65,52 @@ export default function Layout() {
     checkSession();
     // eslint-disable-next-line
   }, []);
+
+  // Add keyboard shortcut for emergency recovery (Ctrl+Shift+R)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key === 'R') {
+        event.preventDefault();
+        setShowEmergencyRecovery(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Manual session recovery function
+  const handleManualRecovery = async () => {
+    setIsRecovering(true);
+    try {
+      console.log('Starting manual session recovery...');
+      const recovered = await forceSessionRecovery();
+      
+      if (recovered) {
+        console.log('Manual session recovery successful');
+        // Refresh the page to ensure all components re-initialize
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        console.log('Manual session recovery failed');
+        alert('Session recovery failed. Please try logging in again.');
+      }
+    } catch (error) {
+      console.error('Manual recovery error:', error);
+      alert('Recovery failed. Please try logging in again.');
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
+  // Emergency recovery function for when app is completely stuck
+  const handleEmergencyRecovery = () => {
+    if (window.confirm('This will clear all app data and reload the page. Are you sure?')) {
+      const recoveryManager = ErrorRecoveryManager.getInstance();
+      recoveryManager.emergencyRecovery();
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -282,6 +332,7 @@ export default function Layout() {
               <div className="hidden md:flex items-center gap-6">
                 <Link to="/sticker-crafts" className="nav-link">Sticker Crafts</Link>
                 <Link to="/loadouts" className="nav-link">Loadouts</Link>
+                <Link to="/skin-table" className="nav-link">Skin Table</Link>
                 <Link to="/resell-tracker" className="nav-link">Resell Tracker</Link>
                 {user && isAdmin(user) && (
                   <div className="flex items-center gap-4">
@@ -368,7 +419,17 @@ export default function Layout() {
               {/* Desktop Profile/Login */}
               <div className="hidden md:flex items-center gap-4">
                 {user ? (
-                  <Link to="/profile" className="btn-primary min-w-[90px] h-10 flex items-center justify-center">Profile</Link>
+                  <>
+                    <Link to="/profile" className="btn-primary min-w-[90px] h-10 flex items-center justify-center">Profile</Link>
+                    <button
+                      onClick={handleManualRecovery}
+                      disabled={isRecovering}
+                      className="btn-secondary min-w-[90px] h-10 flex items-center justify-center text-xs"
+                      title="Recover session if app is stuck"
+                    >
+                      {isRecovering ? 'Recovering...' : 'Recover'}
+                    </button>
+                  </>
                 ) : (
                   <Link to="/login" className="btn-primary min-w-[90px] h-10 flex items-center justify-center">Login</Link>
                 )}
@@ -392,9 +453,22 @@ export default function Layout() {
             <div className="px-4 py-4 space-y-4">
               <Link to="/sticker-crafts" onClick={() => setIsMobileMenuOpen(false)} className="block nav-link py-2">Sticker Crafts</Link>
               <Link to="/loadouts" onClick={() => setIsMobileMenuOpen(false)} className="block nav-link py-2">Loadouts</Link>
+              <Link to="/skin-table" onClick={() => setIsMobileMenuOpen(false)} className="block nav-link py-2">Skin Table</Link>
               <Link to="/resell-tracker" onClick={() => setIsMobileMenuOpen(false)} className="block nav-link py-2">Resell Tracker</Link>
               {user ? (
-                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="block btn-primary w-full text-center">Profile</Link>
+                <>
+                  <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="block btn-primary w-full text-center">Profile</Link>
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      handleManualRecovery();
+                    }}
+                    disabled={isRecovering}
+                    className="block btn-secondary w-full text-center"
+                  >
+                    {isRecovering ? 'Recovering...' : 'Recover Session'}
+                  </button>
+                </>
               ) : (
                 <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block btn-primary w-full text-center">Login</Link>
               )}
@@ -597,6 +671,32 @@ export default function Layout() {
         onAccept={acceptCookies}
         onDecline={declineCookies}
       />
+
+      {/* Emergency Recovery Button */}
+      {showEmergencyRecovery && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="glass-card p-4 border border-red-500/50 bg-red-900/10">
+            <div className="text-sm text-red-400 mb-2 font-medium">Emergency Recovery</div>
+            <div className="text-xs text-dark-text-muted mb-3">
+              App appears to be stuck. This will clear all data and reload.
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleEmergencyRecovery}
+                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors"
+              >
+                Clear & Reload
+              </button>
+              <button
+                onClick={() => setShowEmergencyRecovery(false)}
+                className="px-3 py-1 bg-dark-bg-secondary hover:bg-dark-bg-tertiary text-dark-text-primary text-xs rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

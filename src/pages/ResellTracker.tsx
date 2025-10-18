@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { selectFrom, deleteFrom, updateTable } from '../utils/supabaseApi';
 
 interface TrackerEntry {
   id: string;
@@ -23,6 +24,7 @@ interface TrackerEntry {
       wear: string;
       price: number;
       enabled: boolean;
+      variant: 'normal' | 'stattrak' | 'souvenir';
     }>;
     last_price_update?: string;
   };
@@ -74,7 +76,7 @@ export default function ResellTracker() {
 
   const getPriceForWear = (wear: string): number | null => {
     if (!editingTracker?.skin?.wears_extended) return null;
-    const wearEntry = editingTracker.skin.wears_extended.find(w => w.wear === wear && w.enabled);
+    const wearEntry = editingTracker.skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === 'normal');
     return wearEntry?.price || null;
   };
 
@@ -99,21 +101,11 @@ export default function ResellTracker() {
       setLoading(true);
       
       // First, get the tracker entries
-      const { data: trackerData } = await supabase
-        .from("resell_tracker")
-        .select(`
-          id, 
-          skin_id, 
-          buy_price, 
-          wear_value, 
-          wear,
-          notes, 
-          bought_at,
-          created_at,
-          updated_at
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      const { data: trackerData } = await selectFrom("resell_tracker", {
+        select: "id, skin_id, buy_price, wear_value, wear, notes, bought_at, created_at, updated_at",
+        eq: { user_id: user.id },
+        order: { column: "created_at", ascending: false }
+      });
       
       if (!trackerData) {
         setTrackers([]);
@@ -124,11 +116,11 @@ export default function ResellTracker() {
       // Then, fetch skin data for each tracker
       const trackersWithSkins = await Promise.all(
         trackerData.map(async (tracker) => {
-          const { data: skinData } = await supabase
-            .from("skins")
-            .select("id, name, image, wears_extended, last_price_update")
-            .eq("id", tracker.skin_id)
-            .single();
+          const { data: skinData } = await selectFrom("skins", {
+            select: "id, name, image, wears_extended, last_price_update",
+            eq: { id: tracker.skin_id },
+            single: true
+          });
           
           return {
             ...tracker,
@@ -152,11 +144,9 @@ export default function ResellTracker() {
   const handleDelete = async (trackerId: string) => {
     if (!user) return;
     setDeleting(trackerId);
-    const { error } = await supabase
-      .from("resell_tracker")
-      .delete()
-      .eq("id", trackerId)
-      .eq("user_id", user.id);
+    const { error } = await deleteFrom("resell_tracker", {
+      eq: { id: trackerId, user_id: user.id }
+    });
     if (!error) {
       setTrackers(trackers.filter(t => t.id !== trackerId));
     }
@@ -204,18 +194,16 @@ export default function ResellTracker() {
         return;
       }
       
-      const { error } = await supabase
-        .from("resell_tracker")
-        .update({
+      const { error } = await updateTable("resell_tracker", {
           buy_price: price,
           wear_value: floatValue,
           wear: editFormData.wear,
           notes: editFormData.notes.trim() || null,
           bought_at: editFormData.bought_at,
           updated_at: new Date().toISOString()
-        })
-        .eq("id", editingTracker.id)
-        .eq("user_id", user.id);
+        }, {
+          eq: { id: editingTracker.id, user_id: user.id }
+        });
       
       if (error) {
         setErrorMsg(error.message);
@@ -434,18 +422,16 @@ export default function ResellTracker() {
             try {
               const price = parseFloat(formData.buy_price);
               const floatValue = formData.wear_value ? parseFloat(formData.wear_value) : null;
-              const { error } = await supabase
-                .from("resell_tracker")
-                .update({
+              const { error } = await updateTable("resell_tracker", {
                   buy_price: price,
                   wear_value: floatValue,
                   wear: formData.wear,
                   notes: formData.notes.trim() || null,
                   bought_at: formData.bought_at,
                   updated_at: new Date().toISOString(),
-                })
-                .eq("id", editingTracker.id)
-                .eq("user_id", user.id);
+                }, {
+                  eq: { id: editingTracker.id, user_id: user.id }
+                });
               if (error) {
                 setErrorMsg(error.message);
               } else {

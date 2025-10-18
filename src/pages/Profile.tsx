@@ -4,6 +4,7 @@ import { useFavorites } from "../store/favorites";
 import { supabase } from "../supabaseClient";
 import { Link } from "react-router-dom";
 import ResellTrackerModal from '../components/ResellTrackerModal';
+import { selectFrom, deleteFrom, updateTable } from '../utils/supabaseApi';
 
 interface UserLoadout {
   id: string;
@@ -23,6 +24,7 @@ interface FavoriteSkin {
     wear: string;
     price: number;
     enabled: boolean;
+    variant: 'normal' | 'stattrak' | 'souvenir';
   }>;
 }
 
@@ -44,6 +46,7 @@ interface TrackerEntry {
       wear: string;
       price: number;
       enabled: boolean;
+      variant: 'normal' | 'stattrak' | 'souvenir';
     }>;
     last_price_update?: string;
   };
@@ -88,29 +91,41 @@ export default function Profile() {
   const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
-    checkSession();
+    const initializeProfile = async () => {
+      setLoading(true);
+      await checkSession();
+    };
+    initializeProfile();
     // eslint-disable-next-line
   }, []);
 
-  // Initial load of favorites when user is available
+  // Initial load when user is available
   useEffect(() => {
     if (user) {
       fetchFavorites(user.id);
     }
   }, [user]);
 
+  // Load tab data when user or active tab changes
   useEffect(() => {
     if (user) {
       loadTabData(activeTab);
     }
   }, [user, activeTab]);
 
-  // Refetch favorites when favoriteSkinIds change
+  // Set main loading to false once we have user and the active tab data is loaded
   useEffect(() => {
-    if (user && activeTab === 'favorites' && favoriteSkinIds.length >= 0) {
-      loadFavorites();
+    if (user) {
+      const isActiveTabLoaded = 
+        (activeTab === 'favorites' && !favoritesLoading) ||
+        (activeTab === 'loadouts' && !loadoutsLoading) ||
+        (activeTab === 'tracker' && !trackersLoading);
+      
+      if (isActiveTabLoaded) {
+        setLoading(false);
+      }
     }
-  }, [user, favoriteSkinIds.length, activeTab]);
+  }, [user, activeTab, favoritesLoading, loadoutsLoading, trackersLoading]);
 
   const loadTabData = async (tab: TabType) => {
     if (!user) return;
@@ -130,6 +145,8 @@ export default function Profile() {
 
   const loadFavorites = async () => {
     if (!user) return;
+    
+    // Always set loading to true initially for the active tab
     setFavoritesLoading(true);
     
     try {
@@ -138,10 +155,10 @@ export default function Profile() {
       
       // Then fetch the actual skin data for those IDs
       if (favoriteSkinIds.length > 0) {
-        const { data } = await supabase
-          .from("skins")
-          .select("id, name, image, weapon, rarity_color, wears_extended")
-          .in("id", favoriteSkinIds);
+        const { data } = await selectFrom("skins", {
+          select: "id, name, image, weapon, rarity_color, wears_extended",
+          in: { id: favoriteSkinIds }
+        });
         
         if (data) {
           setFavorites(data as FavoriteSkin[]);
@@ -161,11 +178,10 @@ export default function Profile() {
     if (!user) return;
     setLoadoutsLoading(true);
     
-    const { data } = await supabase
-      .from("user_loadouts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const { data } = await selectFrom("user_loadouts", {
+      eq: { user_id: user.id },
+      order: { column: "created_at", ascending: false }
+    });
     
     setLoadouts(data || []);
     setLoadoutsLoading(false);
@@ -176,21 +192,11 @@ export default function Profile() {
     setTrackersLoading(true);
 
     // First, get the tracker entries
-    const { data: trackerData } = await supabase
-      .from("resell_tracker")
-      .select(`
-        id, 
-        skin_id, 
-        buy_price, 
-        wear_value, 
-        wear,
-        notes, 
-        bought_at,
-        created_at,
-        updated_at
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const { data: trackerData } = await selectFrom("resell_tracker", {
+      select: "id, skin_id, buy_price, wear_value, wear, notes, bought_at, created_at, updated_at",
+      eq: { user_id: user.id },
+      order: { column: "created_at", ascending: false }
+    });
 
     if (!trackerData) {
       setTrackers([]);
@@ -201,11 +207,11 @@ export default function Profile() {
     // Then, fetch skin data for each tracker
     const trackersWithSkins = await Promise.all(
       trackerData.map(async (tracker) => {
-        const { data: skinData } = await supabase
-          .from("skins")
-          .select("id, name, image, wears_extended, last_price_update")
-          .eq("id", tracker.skin_id)
-          .single();
+        const { data: skinData } = await selectFrom("skins", {
+          select: "id, name, image, wears_extended, last_price_update",
+          eq: { id: tracker.skin_id },
+          single: true
+        });
         return {
           ...tracker,
           skin: skinData ? {
@@ -270,7 +276,7 @@ export default function Profile() {
 
   const getPriceRange = (wears_extended: any[] | null | undefined) => {
     if (!wears_extended) return null;
-    const enabled = wears_extended.filter(w => w.enabled);
+    const enabled = wears_extended.filter(w => w.enabled && w.variant === 'normal');
     const fn = enabled.find(w => w.wear === "FN");
     const bs = enabled.find(w => w.wear === "BS");
     if (fn && bs) return `$${bs.price} - $${fn.price}`;
@@ -281,7 +287,7 @@ export default function Profile() {
 
   const getCurrentPrice = (tracker: TrackerEntry) => {
     if (!tracker.skin?.wears_extended) return null;
-    const enabled = tracker.skin.wears_extended.filter(w => w.enabled);
+    const enabled = tracker.skin.wears_extended.filter(w => w.enabled && w.variant === 'normal');
     if (enabled.length === 0) return null;
     
     if (tracker.wear) {
@@ -359,11 +365,9 @@ export default function Profile() {
   const handleDelete = async (trackerId: string) => {
     if (!user) return;
     setDeleting(trackerId);
-    const { error } = await supabase
-      .from("resell_tracker")
-      .delete()
-      .eq("id", trackerId)
-      .eq("user_id", user.id);
+    const { error } = await deleteFrom("resell_tracker", {
+      eq: { id: trackerId, user_id: user.id }
+    });
     if (!error) {
       await loadTrackers();
     }
@@ -393,6 +397,33 @@ export default function Profile() {
     }
     return "";
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto py-10 px-2 sm:px-6">
+        <div className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 p-8">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded mb-6 w-1/3"></div>
+            <div className="flex gap-3 mb-8">
+              <div className="h-10 bg-gray-200 rounded w-24"></div>
+              <div className="h-10 bg-gray-200 rounded w-24"></div>
+              <div className="h-10 bg-gray-200 rounded w-24"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="glass-card rounded-2xl p-6">
+                  <div className="w-32 h-32 bg-gray-200 rounded mb-4 mx-auto"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3 mx-auto"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -506,9 +537,7 @@ export default function Profile() {
           {activeTab === 'favorites' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-dark-text-primary tracking-tight">Favorite Skins</h2>
-              {favoritesLoading ? (
-                <div className="text-center py-12 text-dark-text-muted text-lg">Loading favorites...</div>
-              ) : favorites.length === 0 ? (
+              {favorites.length === 0 ? (
                 <div className="text-dark-text-muted text-center py-12 text-lg">
                   You have no favorite skins yet.
                 </div>
@@ -547,9 +576,7 @@ export default function Profile() {
           {activeTab === 'loadouts' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-dark-text-primary tracking-tight">Your Loadouts</h2>
-              {loadoutsLoading ? (
-                <div className="text-center py-12 text-dark-text-muted text-lg">Loading loadouts...</div>
-              ) : loadouts.length === 0 ? (
+              {loadouts.length === 0 ? (
                 <div className="text-dark-text-muted text-center py-12 text-lg">
                   You have no loadouts yet.
                   <br />
@@ -581,9 +608,7 @@ export default function Profile() {
           {activeTab === 'tracker' && (
             <div>
               <h2 className="text-2xl font-bold mb-6 text-dark-text-primary tracking-tight">Resell Tracker</h2>
-              {trackersLoading ? (
-                <div className="text-center py-12 text-dark-text-muted text-lg">Loading trackers...</div>
-              ) : trackers.length === 0 ? (
+              {trackers.length === 0 ? (
                 <div className="text-dark-text-muted text-center py-12 text-lg">
                   You have no resell trackers yet.
                   <br />
@@ -666,18 +691,16 @@ export default function Profile() {
             try {
               const price = parseFloat(formData.buy_price);
               const floatValue = formData.wear_value ? parseFloat(formData.wear_value) : null;
-              const { error } = await supabase
-                .from("resell_tracker")
-                .update({
+              const { error } = await updateTable("resell_tracker", {
                   buy_price: price,
                   wear_value: floatValue,
                   wear: formData.wear,
                   notes: formData.notes.trim() || null,
                   bought_at: formData.bought_at,
                   updated_at: new Date().toISOString(),
-                })
-                .eq("id", editingTracker.id)
-                .eq("user_id", user.id);
+                }, {
+                  eq: { id: editingTracker.id, user_id: user.id }
+                });
               if (error) {
                 setErrorMsg(error.message);
               } else {

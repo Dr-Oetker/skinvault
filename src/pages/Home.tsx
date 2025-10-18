@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
 import SEO, { SEOPresets } from "../components/SEO";
+import { selectFrom } from "../utils/supabaseApi";
 
 interface Loadout {
   id: string;
@@ -38,24 +39,24 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: loadoutsData } = await supabase
-        .from("official_loadouts")
-        .select("id, title, description")
-        .order("created_at", { ascending: false })
-        .limit(3);
+      const { data: loadoutsData } = await selectFrom("official_loadouts", {
+        select: "id, title, description",
+        order: { column: "created_at", ascending: false },
+        limit: 3
+      });
       setLoadouts(loadoutsData || []);
 
-      const { data: craftsData } = await supabase
-        .from("sticker_crafts")
-        .select("id, name, description")
-        .order("created_at", { ascending: false })
-        .limit(3);
+      const { data: craftsData } = await selectFrom("sticker_crafts", {
+        select: "id, name, description",
+        order: { column: "created_at", ascending: false },
+        limit: 3
+      });
       setCrafts(craftsData || []);
 
       // Fetch categories and weapons for mobile skins menu
-      const { data: catData } = await supabase.from("categories").select();
+      const { data: catData } = await selectFrom("categories", {});
       setCategories(catData || []);
-      const { data: weaponData } = await supabase.from("weapons").select();
+      const { data: weaponData } = await selectFrom("weapons", {});
       setWeapons(weaponData || []);
 
       setLoading(false);

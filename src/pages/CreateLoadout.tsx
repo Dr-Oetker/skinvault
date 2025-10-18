@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
+import { insertInto } from "../utils/supabaseApi";
 
 export default function CreateLoadout() {
   const navigate = useNavigate();
@@ -28,23 +29,19 @@ export default function CreateLoadout() {
     setLoading(true);
     setError(null);
 
-    const { data, error: insertError } = await supabase
-      .from('user_loadouts')
-      .insert([{
+    const { data, error: insertError } = await insertInto('user_loadouts', {
         user_id: user.id,
         title: title.trim(),
         description: description.trim() || null,
         budget: budget ? parseFloat(budget) : null
-      }])
-      .select()
-      .single();
+      }, { select: true });
 
     if (insertError) {
       setError(insertError.message);
       setLoading(false);
     } else if (data) {
       // Navigate to the new loadout
-      navigate(`/loadouts/user/${data.id}`);
+      navigate(`/loadouts/user/${(data as any)[0].id}`);
     }
   };
 

@@ -22,26 +22,48 @@ import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
 import CookieSettings from "./pages/CookieSettings";
 import Category from "./pages/Category";
+import SkinTable from "./pages/SkinTable";
 import Error404 from "./pages/Error404";
 import Error500 from "./pages/Error500";
 import Error403 from "./pages/Error403";
 import Error from "./pages/Error";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { useEffect } from "react";
-import { initializeSessionManager } from "./utils/sessionManager";
+import { initializeSessionManager, initializeAppSession } from "./utils/sessionManager";
 import { initializeVisibilityManager, initializeFocusManager } from "./utils/visibilityManager";
+import { setupGlobalErrorHandling } from "./utils/errorRecovery";
+import "./utils/debugHelper";
 
 function App() {
   // Initialize session and visibility managers
   useEffect(() => {
-    const sessionCleanup = initializeSessionManager();
-    const visibilityCleanup = initializeVisibilityManager();
-    const focusCleanup = initializeFocusManager();
+    const initializeApp = async () => {
+      // Set up global error handling first
+      setupGlobalErrorHandling();
+      
+      // Initialize the app session
+      await initializeAppSession();
+      
+      // Then set up the session manager and other managers
+      const sessionCleanup = initializeSessionManager();
+      const visibilityCleanup = initializeVisibilityManager();
+      const focusCleanup = initializeFocusManager();
+      
+      return () => {
+        sessionCleanup();
+        visibilityCleanup();
+        focusCleanup();
+      };
+    };
+    
+    let cleanup: (() => void) | undefined;
+    
+    initializeApp().then((cleanupFn) => {
+      cleanup = cleanupFn;
+    });
     
     return () => {
-      sessionCleanup();
-      visibilityCleanup();
-      focusCleanup();
+      cleanup?.();
     };
   }, []);
 
@@ -62,6 +84,7 @@ function App() {
           <Route path="weapons/:weaponName" element={<Weapon />} />
           <Route path="skins/:skinId" element={<Skin />} />
           <Route path="category/:categoryName" element={<Category />} />
+          <Route path="skin-table" element={<SkinTable />} />
           <Route path="resell-tracker" element={<ResellTracker />} />
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="admin/loadouts" element={<AdminLoadouts />} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import SEO, { SEOPresets } from "../components/SEO";
+import { selectFrom } from "../utils/supabaseApi";
 
 interface StickerCraft {
   id: string;
@@ -19,10 +20,10 @@ export default function StickerCrafts() {
   useEffect(() => {
     const fetchCrafts = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("sticker_crafts")
-        .select("id, name, description, ingame_image, placement_image")
-        .order("created_at", { ascending: false });
+      const { data, error } = await selectFrom("sticker_crafts", {
+        select: "id, name, description, ingame_image, placement_image",
+        order: { column: "created_at", ascending: false }
+      });
       setCrafts(data || []);
       setLoading(false);
     };

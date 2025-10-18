@@ -12,7 +12,7 @@
 
 **Responsible for content according to § 55 Abs. 2 RStV:**
 - Lennard Klein
-- Königstr. 76, 33098, Paderborn
+- Königstr. 76, 33098, Paderborn, Germany
 
 ---
 

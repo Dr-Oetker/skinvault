@@ -6,11 +6,13 @@ import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { scrollPositionManager } from '../utils/scrollPosition';
+import { selectFrom, insertInto } from '../utils/supabaseApi';
 
 interface WearEntry {
   wear: string;
   price: number;
   enabled: boolean;
+  variant: 'normal' | 'stattrak' | 'souvenir';
 }
 
 interface Skin {
@@ -80,9 +82,9 @@ export default function SkinDetail() {
     return "";
   };
 
-  const getPriceForWear = (wear: string): number | null => {
+  const getPriceForWear = (wear: string, variant: 'normal' | 'stattrak' | 'souvenir' = 'normal'): number | null => {
     if (!skin?.wears_extended) return null;
-    const wearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled);
+    const wearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === variant);
     return wearEntry?.price || null;
   };
 
@@ -116,11 +118,11 @@ export default function SkinDetail() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("skins")
-        .select("id, name, image, description, wears_extended, crates, collections, stattrak, souvenir, rarity_color, rarity, last_price_update")
-        .eq("id", skinId)
-        .single();
+      const { data } = await selectFrom("skins", {
+        select: "id, name, image, description, wears_extended, crates, collections, stattrak, souvenir, rarity_color, rarity, last_price_update",
+        eq: { id: skinId },
+        single: true
+      });
       setSkin(data || null);
       setLoading(false);
     };
@@ -157,29 +159,44 @@ export default function SkinDetail() {
   function getWearBadges(wears_extended: WearEntry[] | null | undefined) {
     if (!wears_extended) return null;
     const order = ["FN", "MW", "FT", "WW", "BS"];
+    const variants: ('normal' | 'stattrak' | 'souvenir')[] = ['normal', 'stattrak', 'souvenir'];
+    const variantColors = {
+      normal: 'text-dark-text-primary',
+      stattrak: 'text-orange-400',
+      souvenir: 'text-yellow-400'
+    };
+    const variantLabels = {
+      normal: '',
+      stattrak: 'ST',
+      souvenir: 'SV'
+    };
+
     return (
-      <div className="flex flex-wrap gap-3 mb-1">
+      <div className="space-y-4 mb-1">
         {order.map(wear => {
-          const entry = wears_extended.find(w => w.wear === wear && w.enabled);
-          if (entry) {
-            return (
-              <span
-                key={wear}
-                className={`px-4 py-2 rounded text-base font-bold shadow-sm ${wearColors[wear] || "bg-dark-bg-secondary text-dark-text-primary border border-dark-border"}`}
-              >
-                {wear}: {entry.price === 0 ? 'No Data' : `$${entry.price}`}
-              </span>
-            );
-          } else {
-            return (
-              <span
-                key={wear}
-                className="px-4 py-2 rounded text-base font-bold shadow-sm bg-dark-bg-secondary text-dark-text-muted border border-dark-border/50 opacity-60 cursor-not-allowed"
-              >
-                {wear}: Not possible
-              </span>
-            );
-          }
+          const wearVariants = variants.map(variant => {
+            const entry = wears_extended.find(w => w.wear === wear && w.enabled && w.variant === variant);
+            return { variant, entry };
+          }).filter(v => v.entry);
+
+          if (wearVariants.length === 0) return null;
+
+          return (
+            <div key={wear} className="flex flex-col gap-2">
+              <div className="text-sm font-medium text-dark-text-secondary">{wear}</div>
+              <div className="flex flex-wrap gap-2">
+                {wearVariants.map(({ variant, entry }) => (
+                  <span
+                    key={`${wear}-${variant}`}
+                    className={`px-3 py-1.5 rounded text-sm font-medium shadow-sm border ${wearColors[wear] || "bg-dark-bg-secondary text-dark-text-primary border-dark-border"} ${variantColors[variant]}`}
+                  >
+                    {variantLabels[variant] && <span className="mr-1">{variantLabels[variant]}</span>}
+                    {entry!.price === 0 ? 'No Data' : `$${entry!.price}`}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
         })}
       </div>
     );
@@ -296,10 +313,7 @@ export default function SkinDetail() {
             try {
               const price = parseFloat(formData.buy_price);
               const floatValue = formData.wear_value ? parseFloat(formData.wear_value) : null;
-              const { error } = await supabase
-                .from("resell_tracker")
-                .insert([
-                  {
+              const { error } = await insertInto("resell_tracker", {
                       user_id: user?.id,
                       skin_id: skin?.id,
                     buy_price: price,
@@ -307,8 +321,7 @@ export default function SkinDetail() {
                     wear: formData.wear,
                     notes: formData.notes.trim() || null,
                     bought_at: formData.bought_at,
-                  },
-                ]);
+                  });
               if (error) {
                 setErrorMsg(error.message);
               } else {

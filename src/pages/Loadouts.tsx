@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import SEO, { SEOPresets } from "../components/SEO";
+import { selectFrom } from "../utils/supabaseApi";
 
 interface Loadout {
   id: string;
@@ -25,23 +26,23 @@ export default function Loadouts() {
       
       // Fetch user loadouts if logged in
       if (user) {
-        const { data: userData } = await supabase
-          .from('user_loadouts')
-          .select('id, title, description, budget, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const { data: userData } = await selectFrom('user_loadouts', {
+          select: 'id, title, description, budget, created_at',
+          eq: { user_id: user.id },
+          order: { column: 'created_at', ascending: false }
+        });
         
         if (userData) {
-          setUserLoadouts(userData.map(loadout => ({ ...loadout, loadout_type: 'user' as const })));
+          setUserLoadouts((userData as any).map((loadout: any) => ({ ...loadout, loadout_type: 'user' as const })));
         }
       }
 
       // Fetch loadouts (previously 'official_loadouts')
-      const { data: loadoutData } = await supabase
-        .from('official_loadouts')
-        .select('id, title, description, created_at')
-        .order('created_at', { ascending: false })
-        .limit(6);
+      const { data: loadoutData } = await selectFrom('official_loadouts', {
+        select: 'id, title, description, created_at',
+        order: { column: 'created_at', ascending: false },
+        limit: 6
+      });
       
       if (loadoutData) {
         setLoadouts(loadoutData.map(loadout => ({ ...loadout, loadout_type: 'loadout' as const })));

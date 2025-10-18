@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import { selectFrom } from '../utils/supabaseApi';
 
 interface StickerCraft {
   id: string;
@@ -34,30 +35,30 @@ export default function StickerCraftDetail() {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      const { data: craftData, error: craftError } = await supabase
-        .from("sticker_crafts")
-        .select("id, name, description, ingame_image, placement_image, skin_id, external_craft_link")
-        .eq("id", id)
-        .single();
+      const { data: craftData, error: craftError } = await selectFrom("sticker_crafts", {
+        select: "id, name, description, ingame_image, placement_image, skin_id, external_craft_link",
+        eq: { id },
+        single: true
+      });
       if (craftError || !craftData) {
         setError("Sticker craft not found.");
         setLoading(false);
         return;
       }
       setCraft(craftData);
-      const { data: stickerData } = await supabase
-        .from("sticker_craft_stickers")
-        .select("id, name, image, price, external_link, last_updated")
-        .eq("craft_id", id)
-        .order("position");
+      const { data: stickerData } = await selectFrom("sticker_craft_stickers", {
+        select: "id, name, image, price, external_link, last_updated",
+        eq: { craft_id: id },
+        order: { column: "position" }
+      });
       setStickers(stickerData || []);
       // Fetch related skin details
       if (craftData?.skin_id) {
-        const { data: skinData } = await supabase
-          .from("skins")
-          .select("id, name, wears_extended")
-          .eq("id", craftData.skin_id)
-          .single();
+        const { data: skinData } = await selectFrom("skins", {
+          select: "id, name, wears_extended",
+          eq: { id: craftData.skin_id },
+          single: true
+        });
         setRelatedSkin(skinData || null);
       } else {
         setRelatedSkin(null);

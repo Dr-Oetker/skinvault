@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../supabaseClient';
 import { useFavorites } from './favorites';
 import { shouldUseCookies, setCookie, getCookie } from '../utils/cookies';
+import { startManualTokenRefresh, stopManualTokenRefresh } from '../utils/sessionManager';
 
 interface AuthState {
   user: any;
@@ -24,6 +25,8 @@ export const useAuth = create<AuthState>((set) => ({
       if (shouldUseCookies()) {
         setCookie('user_session', data.user.id, 7); // 7 days
       }
+      // Start manual token refresh
+      startManualTokenRefresh();
       // Fetch user's favorites after successful login
       const favoritesStore = useFavorites.getState();
       await favoritesStore.fetchFavorites(data.user.id);
@@ -44,6 +47,8 @@ export const useAuth = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Stop manual token refresh
+    stopManualTokenRefresh();
     await supabase.auth.signOut();
     set({ user: null });
     // Clear session cookie if enabled
@@ -69,11 +74,14 @@ export const useAuth = create<AuthState>((set) => ({
         if (shouldUseCookies()) {
           setCookie('user_session', data.user.id, 7); // 7 days
         }
+        // Start manual token refresh
+        startManualTokenRefresh();
         // Fetch user's favorites if they have an active session
         const favoritesStore = useFavorites.getState();
         await favoritesStore.fetchFavorites(data.user.id);
       } else {
         set({ user: null, loading: false });
+        stopManualTokenRefresh();
       }
     } catch (error) {
       console.error('Session check failed:', error);

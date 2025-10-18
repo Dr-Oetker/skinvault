@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getSideImage, getWeaponImage } from '../utils/images';
+import { selectFrom, updateTable } from '../utils/supabaseApi';
 
 // Weapon definitions (reuse from LoadoutDetail)
 const weaponDefinitions = {
@@ -125,6 +126,7 @@ interface WearEntry {
   wear: string;
   price: number;
   enabled: boolean;
+  variant: 'normal' | 'stattrak' | 'souvenir';
 }
 
 type Side = 't' | 'ct';
@@ -188,11 +190,10 @@ export default function EditLoadout() {
       setLoading(true);
       
       // Fetch basic loadout data
-      const { data: loadoutData, error: loadoutError } = await supabase
-        .from("user_loadouts")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const { data: loadoutData, error: loadoutError } = await selectFrom("user_loadouts", {
+        eq: { id },
+        single: true
+      });
       
       if (loadoutError || !loadoutData) {
         setError("Loadout not found or you do not have permission to edit.");
@@ -229,11 +230,11 @@ export default function EditLoadout() {
             const wearField = `${weaponKey}_wear`;
             const selectedWear = loadoutData[wearField as keyof typeof loadoutData] as string | undefined;
             
-            const { data: skin } = await supabase
-              .from('skins')
-              .select('id, name, image, wears_extended')
-              .eq('id', skinId)
-              .single();
+            const { data: skin } = await selectFrom('skins', {
+              select: 'id, name, image, wears_extended',
+              eq: { id: skinId },
+              single: true
+            });
             
             if (skin) {
               // Find the wear entry for the selected wear
@@ -335,11 +336,11 @@ export default function EditLoadout() {
   };
 
   const fetchWeaponTypeOptions = async (category: 'Knives' | 'Gloves') => {
-    const { data: weaponsData, error } = await supabase
-      .from('weapons')
-      .select('id, name, category')
-      .eq('category', category)
-      .order('name');
+    const { data: weaponsData, error } = await selectFrom('weapons', {
+      select: 'id, name, category',
+      eq: { category },
+      order: { column: 'name' }
+    });
     if (error) {
       setWeaponTypeOptions([]);
     } else {
@@ -359,11 +360,11 @@ export default function EditLoadout() {
     // Step 2: For normal weapons, show skin selection
     const weaponDef = weaponDefinitions[weaponKey as keyof typeof weaponDefinitions];
     if (!weaponDef) return;
-    const { data: skinsData, error } = await supabase
-      .from('skins')
-      .select('id, name, image, wears_extended, rarity_color')
-      .eq('weapon', weaponDef.name)
-      .order('name');
+    const { data: skinsData, error } = await selectFrom('skins', {
+      select: 'id, name, image, wears_extended, rarity_color',
+      eq: { weapon: weaponDef.name },
+      order: { column: 'name' }
+    });
     if (error) {
       setSkins([]);
     } else if (skinsData) {
@@ -375,11 +376,11 @@ export default function EditLoadout() {
     setShowWeaponTypeModal(null);
     setSelectedWeaponId(selectedWeaponId); // keep slot
     // Fetch skins for the selected weapon type
-    const { data: skinsData, error } = await supabase
-      .from('skins')
-      .select('id, name, image, wears_extended, rarity_color')
-      .eq('weapon', weaponTypeName)
-      .order('name');
+    const { data: skinsData, error } = await selectFrom('skins', {
+      select: 'id, name, image, wears_extended, rarity_color',
+      eq: { weapon: weaponTypeName },
+      order: { column: 'name' }
+    });
     if (error) {
       setSkins([]);
     } else if (skinsData) {
@@ -462,11 +463,10 @@ export default function EditLoadout() {
         }
       }
 
-      // Update the loadout
-      const { error: loadoutError } = await supabase
-        .from("user_loadouts")
-        .update(updateData)
-        .eq("id", id);
+      // Update the loadout using REST API
+      const { error: loadoutError } = await updateTable("user_loadouts", updateData, {
+        eq: { id }
+      });
 
       if (loadoutError) {
         throw loadoutError;
@@ -475,7 +475,11 @@ export default function EditLoadout() {
       // Navigate back to the loadout detail page
       navigate(`/loadouts/user/${id}`);
     } catch (err: any) {
-      setError(err.message || "Failed to save loadout");
+      if (err.message?.includes('timed out')) {
+        setError("Save operation timed out. Please check your connection and try again.");
+      } else {
+        setError(err.message || "Failed to save loadout");
+      }
     } finally {
       setSaving(false);
     }
@@ -707,7 +711,7 @@ export default function EditLoadout() {
               </div>
               <div className="grid gap-4 min-w-0 px-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                 {skins.map(skin => {
-                  const enabledWears = skin.wears_extended?.filter(w => w.enabled) || [];
+                  const enabledWears = skin.wears_extended?.filter(w => w.enabled && w.variant === 'normal') || [];
                   const minPrice = enabledWears.length > 0 ? Math.min(...enabledWears.map(w => w.price)) : 0;
                   const maxPrice = enabledWears.length > 0 ? Math.max(...enabledWears.map(w => w.price)) : 0;
                   return (
@@ -767,20 +771,49 @@ export default function EditLoadout() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                {selectedSkin.wears_extended?.filter(w => w.enabled).map(wear => (
-                  <button
-                    key={wear.wear}
-                    onClick={() => handleWearSelect(wear.wear)}
-                    disabled={saving}
-                    className="w-full p-3 border rounded-lg hover:bg-gray-50 text-left transition-colors"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{wear.wear}</span>
-                      <span className="text-green-600 font-bold">${wear.price}</span>
+              <div className="space-y-4">
+                {['FN', 'MW', 'FT', 'WW', 'BS'].map(wearGrade => {
+                  const wearVariants = selectedSkin.wears_extended?.filter(w => w.wear === wearGrade && w.enabled) || [];
+                  if (wearVariants.length === 0) return null;
+
+                  const variantColors = {
+                    normal: 'text-dark-text-primary',
+                    stattrak: 'text-orange-400',
+                    souvenir: 'text-yellow-400'
+                  };
+                  const variantLabels = {
+                    normal: 'Normal',
+                    stattrak: 'StatTrak',
+                    souvenir: 'Souvenir'
+                  };
+
+                  return (
+                    <div key={wearGrade} className="flex flex-col gap-2">
+                      <div className="text-sm font-medium text-dark-text-secondary">{wearGrade}</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {wearVariants.map(wear => (
+                          <button
+                            key={`${wear.wear}-${wear.variant}`}
+                            onClick={() => handleWearSelect(wear.wear)}
+                            disabled={saving}
+                            className={`p-3 rounded-lg border font-bold transition-all text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary flex flex-col items-center justify-center gap-1 ${
+                              selectedWear === wear.wear
+                                ? 'bg-accent-primary text-white border-accent-primary shadow-lg scale-105'
+                                : 'bg-dark-bg-secondary text-dark-text-primary border-dark-border-primary/40 hover:bg-accent-primary/10 hover:scale-105'
+                            }`}
+                          >
+                            <div className={`font-bold text-xs ${variantColors[wear.variant as keyof typeof variantColors]}`}>
+                              {variantLabels[wear.variant as keyof typeof variantLabels]}
+                            </div>
+                            <div className="text-xs opacity-75">
+                              ${wear.price}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

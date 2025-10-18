@@ -14,6 +14,7 @@ interface Skin {
     wear: string;
     price: number;
     enabled: boolean;
+    variant: 'normal' | 'stattrak' | 'souvenir';
   }>;
 }
 
@@ -246,9 +247,9 @@ export default function ResellTrackerModal({
     }
   };
 
-  const getPriceForWear = (wear: string): number | null => {
+  const getPriceForWear = (wear: string, variant: 'normal' | 'stattrak' | 'souvenir' = 'normal'): number | null => {
     if (!skin?.wears_extended) return null;
-    const wearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled);
+    const wearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === variant);
     return wearEntry?.price || null;
   };
 
@@ -330,26 +331,52 @@ export default function ResellTrackerModal({
         <div className="space-y-6 px-4 md:px-0">
           <div>
             <label className="block font-semibold mb-2 text-dark-text-primary text-base">Wear Selection <span className="text-accent-error">*</span></label>
-            <div className="flex flex-col gap-2 md:grid md:grid-cols-5 md:gap-2 mb-3 pb-2">
+            <div className="space-y-4 mb-3 pb-2">
               {Object.entries(wearRanges).map(([wear, range]) => {
-                const enabled = skin.wears_extended?.find(wr => wr.wear === wear && wr.enabled);
+                const variants = ['normal', 'stattrak', 'souvenir'] as const;
+                const wearVariants = variants.map(variant => {
+                  const entry = skin.wears_extended?.find(w => w.wear === wear && w.enabled && w.variant === variant);
+                  return { variant, entry };
+                }).filter(v => v.entry);
+
+                if (wearVariants.length === 0) return null;
+
+                const variantColors = {
+                  normal: 'text-dark-text-primary',
+                  stattrak: 'text-orange-400',
+                  souvenir: 'text-yellow-400'
+                };
+                const variantLabels = {
+                  normal: '',
+                  stattrak: 'ST',
+                  souvenir: 'SV'
+                };
+
                 return (
-                  <button
-                    key={wear}
-                    type="button"
-                    onClick={() => enabled && handleWearSelect(wear)}
-                    disabled={!enabled}
-                    className={`w-full p-3 text-base rounded-lg border font-bold transition-all whitespace-nowrap text-center flex-shrink-0 shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:z-10 flex flex-col items-center justify-center gap-1 ${
-                      formData.wear === wear && enabled
-                        ? 'bg-accent-primary text-white border-accent-primary shadow-lg scale-105'
-                        : enabled
-                          ? 'bg-dark-bg-secondary text-dark-text-primary border-dark-border-primary/40 hover:bg-accent-primary/10 hover:scale-105'
-                          : 'bg-dark-bg-secondary text-dark-text-muted border-dark-border/50 opacity-50 cursor-not-allowed'
-                    }`}
-                  >
-                    <div className="font-bold flex-1 flex items-center justify-center">{wear}</div>
-                    <div className="text-xs opacity-75 flex-1 flex items-center justify-center">{range.min.toFixed(2)}-{range.max.toFixed(2)}</div>
-                  </button>
+                  <div key={wear} className="flex flex-col gap-2">
+                    <div className="text-sm font-medium text-dark-text-secondary">{wear} ({range.min.toFixed(2)}-{range.max.toFixed(2)})</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {wearVariants.map(({ variant, entry }) => (
+                        <button
+                          key={`${wear}-${variant}`}
+                          type="button"
+                          onClick={() => handleWearSelect(wear)}
+                          className={`p-3 text-sm rounded-lg border font-bold transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary flex flex-col items-center justify-center gap-1 ${
+                            formData.wear === wear
+                              ? 'bg-accent-primary text-white border-accent-primary shadow-lg scale-105'
+                              : 'bg-dark-bg-secondary text-dark-text-primary border-dark-border-primary/40 hover:bg-accent-primary/10 hover:scale-105'
+                          }`}
+                        >
+                          <div className={`font-bold ${variantColors[variant]}`}>
+                            {variantLabels[variant] || 'Normal'}
+                          </div>
+                          <div className="text-xs opacity-75">
+                            ${entry!.price}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -378,10 +405,20 @@ export default function ResellTrackerModal({
             {formData.wear && (
               <div className="mt-2 text-sm text-accent-primary font-semibold">
                 Selected: {wearRanges[formData.wear as keyof typeof wearRanges]?.label}
-                {skin.wears_extended && skin.wears_extended.find(w => w.wear === formData.wear && w.enabled) && (
-                  <span className="ml-2 text-accent-success font-bold">
-                    Price: ${skin.wears_extended.find(w => w.wear === formData.wear && w.enabled)?.price}
-                  </span>
+                {skin.wears_extended && (
+                  <div className="mt-1 space-y-1">
+                    {['normal', 'stattrak', 'souvenir'].map(variant => {
+                      const entry = skin.wears_extended!.find(w => w.wear === formData.wear && w.enabled && w.variant === variant);
+                      if (!entry) return null;
+                      const variantLabels = { normal: 'Normal', stattrak: 'StatTrak', souvenir: 'Souvenir' };
+                      const variantColors = { normal: 'text-dark-text-primary', stattrak: 'text-orange-400', souvenir: 'text-yellow-400' };
+                      return (
+                        <div key={variant} className={`text-xs ${variantColors[variant as keyof typeof variantColors]}`}>
+                          {variantLabels[variant as keyof typeof variantLabels]}: ${entry.price}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}

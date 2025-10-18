@@ -6,6 +6,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getSideImage, getWeaponImage } from '../utils/images';
 import { handleApiError, ErrorType } from '../utils/errorHandling';
 import { scrollPositionManager } from '../utils/scrollPosition';
+import { selectFrom, updateTable, insertInto, deleteFrom } from '../utils/supabaseApi';
 
 // Weapon interface removed as it's not used
 
@@ -21,6 +22,7 @@ interface WearEntry {
   wear: string;
   price: number;
   enabled: boolean;
+  variant: 'normal' | 'stattrak' | 'souvenir';
 }
 
 interface Loadout {
@@ -286,6 +288,7 @@ export default function LoadoutDetail() {
   const [saving, setSaving] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
   const [selectedSkinsInfo, setSelectedSkinsInfo] = useState<Record<string, SelectedSkinInfo>>({});
+  const [skinsLoading, setSkinsLoading] = useState(true); // Track if skin info is still loading
   const [showWeaponTypeModal, setShowWeaponTypeModal] = useState<null | 'knives' | 'gloves'>(null);
   const [weaponTypeOptions, setWeaponTypeOptions] = useState<{ id: string; name: string }[]>([]);
   // pendingSlot removed as it's not used
@@ -305,13 +308,12 @@ export default function LoadoutDetail() {
       setLoading(true);
       
       try {
-      // Fetch loadout details
+      // Fetch loadout details using REST API
       const tableName = loadoutType === 'user' ? 'user_loadouts' : 'official_loadouts';
-        const { data: loadoutData, error } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('id', loadoutId)
-        .single();
+        const { data: loadoutData, error } = await selectFrom(tableName, {
+        eq: { id: loadoutId },
+        single: true
+      });
       
         if (error) {
           if (error.code === 'PGRST116') {
@@ -365,11 +367,11 @@ export default function LoadoutDetail() {
 
   // Fetch weapon types for knives or gloves
   const fetchWeaponTypeOptions = async (category: 'Knives' | 'Gloves') => {
-    const { data: weaponsData, error } = await supabase
-      .from('weapons')
-      .select('id, name, category')
-      .eq('category', category)
-      .order('name');
+    const { data: weaponsData, error } = await selectFrom('weapons', {
+      select: 'id, name, category',
+      eq: { category },
+      order: { column: 'name' }
+    });
     if (error) {
       setWeaponTypeOptions([]);
     } else {
@@ -395,11 +397,11 @@ export default function LoadoutDetail() {
     // Step 2: For normal weapons, show skin selection
     const weaponDef = weaponDefinitions[weaponKey as keyof typeof weaponDefinitions];
     if (!weaponDef) return;
-    const { data: skinsData, error } = await supabase
-      .from('skins')
-      .select('id, name, image, wears_extended, rarity_color')
-      .eq('weapon', weaponDef.name)
-      .order('name');
+    const { data: skinsData, error } = await selectFrom('skins', {
+      select: 'id, name, image, wears_extended, rarity_color',
+      eq: { weapon: weaponDef.name },
+      order: { column: 'name' }
+    });
     if (error) {
       setSkins([]);
     } else if (skinsData) {
@@ -412,11 +414,11 @@ export default function LoadoutDetail() {
     setShowWeaponTypeModal(null);
     setSelectedWeaponId(selectedWeaponId); // keep slot
     // Fetch skins for the selected weapon type
-    const { data: skinsData, error } = await supabase
-      .from('skins')
-      .select('id, name, image, wears_extended, rarity_color')
-      .eq('weapon', weaponTypeName)
-      .order('name');
+    const { data: skinsData, error } = await selectFrom('skins', {
+      select: 'id, name, image, wears_extended, rarity_color',
+      eq: { weapon: weaponTypeName },
+      order: { column: 'name' }
+    });
     if (error) {
       setSkins([]);
     } else if (skinsData) {
@@ -449,8 +451,8 @@ export default function LoadoutDetail() {
     
     setSaving(true);
     
-    // Find the selected wear entry to get the price
-    const selectedWearEntry = selectedSkin.wears_extended?.find(w => w.wear === wearName && w.enabled);
+    // Find the selected wear entry to get the price (normal variant)
+    const selectedWearEntry = selectedSkin.wears_extended?.find(w => w.wear === wearName && w.enabled && w.variant === 'normal');
     if (!selectedWearEntry) {
       console.error('Selected wear not found or not enabled:', wearName);
       setSaving(false);
@@ -467,21 +469,26 @@ export default function LoadoutDetail() {
     
     console.log('Updating loadout with:', { tableName, updateData, loadoutId: loadout.id });
     
-    const { error } = await supabase
-      .from(tableName)
-      .update(updateData)
-      .eq('id', loadout.id);
-    
-    if (error) {
-      console.error('Error updating loadout:', error);
-    } else {
-      console.log('Successfully updated loadout');
-      // Update local state
-      setLoadout(prev => prev ? { 
-        ...prev, 
-        [selectedWeaponId]: selectedSkin.id,
-        [wearField]: wearName
-      } : null);
+    try {
+      const { error } = await updateTable(tableName, updateData, {
+        eq: { id: loadout.id }
+      });
+      
+      if (error) {
+        console.error('Error updating loadout:', error);
+        alert('Failed to save loadout. Please try again.');
+      } else {
+        console.log('Successfully updated loadout');
+        // Update local state
+        setLoadout(prev => prev ? { 
+          ...prev, 
+          [selectedWeaponId]: selectedSkin.id,
+          [wearField]: wearName
+        } : null);
+      }
+    } catch (timeoutError) {
+      console.error('Timeout updating loadout:', timeoutError);
+      alert('Save operation timed out. Please check your connection and try again.');
     }
     
     setSaving(false);
@@ -509,10 +516,9 @@ export default function LoadoutDetail() {
       [wearField]: null
     };
     
-    const { error } = await supabase
-      .from(tableName)
-      .update(updateData)
-      .eq('id', loadout.id);
+    const { error } = await updateTable(tableName, updateData, {
+      eq: { id: loadout.id }
+    });
     
     if (error) {
       console.error('Error deselecting skin:', error);
@@ -538,11 +544,9 @@ export default function LoadoutDetail() {
     
     setSaving(true);
     
-    const { error } = await supabase
-      .from('user_loadouts')
-      .delete()
-      .eq('id', loadout.id)
-      .eq('user_id', user.id);
+    const { error } = await deleteFrom('user_loadouts', {
+      eq: { id: loadout.id, user_id: user.id }
+    });
     
     if (error) {
       console.error('Error deleting loadout:', error);
@@ -564,16 +568,12 @@ export default function LoadoutDetail() {
     
     try {
       // Create a new user loadout with the same data
-      const { data: newLoadout, error } = await supabase
-        .from('user_loadouts')
-        .insert({
+      const { data: newLoadout, error } = await insertInto('user_loadouts', {
           user_id: user.id,
           title: `${loadout.title} (Copy)`,
           description: loadout.description || '',
           budget: null
-        })
-        .select()
-        .single();
+        }, { select: true });
       
       if (error) throw error;
       
@@ -590,16 +590,15 @@ export default function LoadoutDetail() {
       }
       
       if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await supabase
-          .from('user_loadouts')
-          .update(updateData)
-          .eq('id', newLoadout.id);
+        const { error: updateError } = await updateTable('user_loadouts', updateData, {
+          eq: { id: (newLoadout as any)[0].id }
+        });
         
         if (updateError) throw updateError;
       }
       
       // Navigate to the new user loadout for editing
-      navigate(`/loadouts/user/${newLoadout.id}`);
+      navigate(`/loadouts/user/${(newLoadout as any)[0].id}`);
       
     } catch (error) {
       console.error('Error copying loadout:', error);
@@ -633,11 +632,11 @@ export default function LoadoutDetail() {
           
           if (selectedWear) {
             // Fetch skin data to get the price for the selected wear
-            const { data: skinData, error } = await supabase
-              .from('skins')
-              .select('wears_extended')
-              .eq('id', skinId)
-              .single();
+            const { data: skinData, error } = await selectFrom('skins', {
+              select: 'wears_extended',
+              eq: { id: skinId },
+              single: true
+            });
             
             if (error) {
               console.warn(`Error fetching skin ${skinId}:`, error);
@@ -645,12 +644,12 @@ export default function LoadoutDetail() {
             }
             
             if (skinData?.wears_extended) {
-              const wearEntry = skinData.wears_extended.find((w: WearEntry) => w.wear === selectedWear && w.enabled);
+              const wearEntry = skinData.wears_extended.find((w: WearEntry) => w.wear === selectedWear && w.enabled && w.variant === 'normal');
               if (wearEntry) {
                 totalCost += wearEntry.price;
               } else {
-                // Fallback to first available wear price
-                const enabledWears = skinData.wears_extended.filter((w: WearEntry) => w.enabled);
+                // Fallback to first available normal wear price
+                const enabledWears = skinData.wears_extended.filter((w: WearEntry) => w.enabled && w.variant === 'normal');
                 if (enabledWears.length > 0) {
                   totalCost += enabledWears[0].price;
                 }
@@ -658,11 +657,11 @@ export default function LoadoutDetail() {
             }
           } else {
             // Fallback: fetch skin data and use first available wear price
-            const { data: skinData, error } = await supabase
-              .from('skins')
-              .select('wears_extended')
-              .eq('id', skinId)
-              .single();
+            const { data: skinData, error} = await selectFrom('skins', {
+              select: 'wears_extended',
+              eq: { id: skinId },
+              single: true
+            });
             
             if (error) {
               console.warn(`Error fetching skin ${skinId}:`, error);
@@ -670,9 +669,9 @@ export default function LoadoutDetail() {
             }
             
             if (skinData?.wears_extended) {
-              const enabledWears = skinData.wears_extended.filter((w: WearEntry) => w.enabled);
+              const enabledWears = skinData.wears_extended.filter((w: WearEntry) => w.enabled && w.variant === 'normal');
               if (enabledWears.length > 0) {
-                totalCost += enabledWears[0].price; // Use first available price
+                totalCost += enabledWears[0].price; // Use first available normal price
               }
             }
           }
@@ -701,6 +700,7 @@ export default function LoadoutDetail() {
   useEffect(() => {
     const fetchSelectedSkins = async () => {
       if (!loadout) return;
+      setSkinsLoading(true);
       const skinInfo: Record<string, SelectedSkinInfo> = {};
       
       if (loadout.loadout_type === 'official') {
@@ -714,11 +714,11 @@ export default function LoadoutDetail() {
               const wearField = `${weaponKey}_wear`;
               const selectedWear = loadout[wearField as keyof Loadout] as string | undefined;
               
-              const { data: skin } = await supabase
-                .from('skins')
-                .select('id, name, image, wears_extended')
-                .eq('id', skinId)
-                .single();
+              const { data: skin } = await selectFrom('skins', {
+                select: 'id, name, image, wears_extended',
+                eq: { id: skinId },
+                single: true
+              });
               
               if (skin) {
                 let wear: string | undefined = undefined;
@@ -726,14 +726,14 @@ export default function LoadoutDetail() {
                 
                 if (selectedWear) {
                   wear = selectedWear;
-                  // Find the price for the selected wear
-                  const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled);
+                  // Find the price for the selected wear (normal variant)
+                  const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled && w.variant === 'normal');
                   if (wearEntry) {
                     price = wearEntry.price;
                   }
                 } else if (skin.wears_extended && Array.isArray(skin.wears_extended)) {
-                  // Fallback to first enabled wear
-                  const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled);
+                  // Fallback to first enabled normal wear
+                  const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled && w.variant === 'normal');
                   if (enabledWear) {
                     wear = enabledWear.wear;
                     price = enabledWear.price;
@@ -764,11 +764,11 @@ export default function LoadoutDetail() {
               const wearField = `${weaponKey}_wear`;
               const selectedWear = loadout[wearField as keyof Loadout] as string | undefined;
               
-              const { data: skin } = await supabase
-                .from('skins')
-                .select('id, name, image, wears_extended')
-                .eq('id', skinId)
-                .single();
+              const { data: skin } = await selectFrom('skins', {
+                select: 'id, name, image, wears_extended',
+                eq: { id: skinId },
+                single: true
+              });
               if (skin) {
                 let wear: string | undefined = undefined;
                 let price: number | undefined = undefined;
@@ -776,14 +776,14 @@ export default function LoadoutDetail() {
                 if (selectedWear) {
                   // Use the stored wear from database
                   wear = selectedWear;
-                  // Find the price for the selected wear
-                  const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled);
+                  // Find the price for the selected wear (normal variant)
+                  const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled && w.variant === 'normal');
                   if (wearEntry) {
                     price = wearEntry.price;
                   }
                 } else if (skin.wears_extended && Array.isArray(skin.wears_extended)) {
-                  // Fallback to first enabled wear (old format)
-                  const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled);
+                  // Fallback to first enabled normal wear (old format)
+                  const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled && w.variant === 'normal');
                   if (enabledWear) {
                     wear = enabledWear.wear;
                     price = enabledWear.price;
@@ -806,6 +806,7 @@ export default function LoadoutDetail() {
       }
       
       setSelectedSkinsInfo(skinInfo);
+      setSkinsLoading(false);
     };
     fetchSelectedSkins();
   }, [loadout]);
@@ -882,7 +883,13 @@ export default function LoadoutDetail() {
           {/* Knives Slot */}
           <div className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 flex flex-col items-center relative p-6">
             <h3 className="font-semibold mb-3 text-center w-full text-lg">Knives</h3>
-            {loadout[`knives_${activeSide}side` as keyof Loadout] && selectedSkinsInfo[`knives_${activeSide}side`] ? (
+{skinsLoading ? (
+              <div className="w-full flex flex-col items-center">
+                <div className="w-32 h-32 bg-dark-bg-tertiary/50 animate-pulse rounded mb-2"></div>
+                <div className="w-24 h-4 bg-dark-bg-tertiary/50 animate-pulse rounded mb-1"></div>
+                <div className="w-16 h-3 bg-dark-bg-tertiary/50 animate-pulse rounded"></div>
+              </div>
+            ) : selectedSkinsInfo[`knives_${activeSide}side`] ? (
               <div className="space-y-2 w-full flex flex-col items-center">
                 <a href={`/skins/${selectedSkinsInfo[`knives_${activeSide}side`]?.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                   <img src={selectedSkinsInfo[`knives_${activeSide}side`]?.image} alt={selectedSkinsInfo[`knives_${activeSide}side`]?.name} className="w-32 h-32 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
@@ -894,15 +901,22 @@ export default function LoadoutDetail() {
                 )}
               </div>
             ) : (
-              <>
-                <img src={getSideImage('knife', activeSide)} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow" />
-              </>
+              <div className="w-full flex flex-col items-center">
+                <img src={getSideImage('knife', activeSide)} alt="Default Knife" className="w-32 h-32 object-contain rounded mb-2 shadow opacity-40" />
+                <div className="text-xs text-dark-text-muted">No knife selected</div>
+              </div>
             )}
           </div>
           {/* Gloves Slot */}
           <div className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 flex flex-col items-center relative p-6">
             <h3 className="font-semibold mb-3 text-center w-full text-lg">Gloves</h3>
-            {loadout[`gloves_${activeSide}side` as keyof Loadout] && selectedSkinsInfo[`gloves_${activeSide}side`] ? (
+            {skinsLoading ? (
+              <div className="w-full flex flex-col items-center">
+                <div className="w-32 h-32 bg-dark-bg-tertiary/50 animate-pulse rounded mb-2"></div>
+                <div className="w-24 h-4 bg-dark-bg-tertiary/50 animate-pulse rounded mb-1"></div>
+                <div className="w-16 h-3 bg-dark-bg-tertiary/50 animate-pulse rounded"></div>
+              </div>
+            ) : selectedSkinsInfo[`gloves_${activeSide}side`] ? (
               <div className="space-y-2 w-full flex flex-col items-center">
                 <a href={`/skins/${selectedSkinsInfo[`gloves_${activeSide}side`]?.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                   <img src={selectedSkinsInfo[`gloves_${activeSide}side`]?.image} alt={selectedSkinsInfo[`gloves_${activeSide}side`]?.name} className="w-32 h-32 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
@@ -914,9 +928,10 @@ export default function LoadoutDetail() {
                 )}
               </div>
             ) : (
-              <>
-                <img src={getSideImage('gloves', activeSide)} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow" />
-              </>
+              <div className="w-full flex flex-col items-center">
+                <img src={getSideImage('gloves', activeSide)} alt="Default Gloves" className="w-32 h-32 object-contain rounded mb-2 shadow opacity-40" />
+                <div className="text-xs text-dark-text-muted">No gloves selected</div>
+              </div>
             )}
           </div>
         </div>
@@ -941,7 +956,13 @@ export default function LoadoutDetail() {
                   <div key={weapon.key} className="glass-card rounded-2xl shadow-dark-lg border border-dark-border-primary/60 flex flex-col items-center relative p-4">
                     <h3 className="font-semibold mb-2 text-sm text-center w-full">{weapon.name}</h3>
                     <div className="w-full flex flex-col items-center">
-                      {selectedSkinId && skinInfo ? (
+                      {skinsLoading ? (
+                        <div className="w-full flex flex-col items-center">
+                          <div className="w-24 h-24 bg-dark-bg-tertiary/50 animate-pulse rounded mb-2"></div>
+                          <div className="w-20 h-3 bg-dark-bg-tertiary/50 animate-pulse rounded mb-1"></div>
+                          <div className="w-16 h-2 bg-dark-bg-tertiary/50 animate-pulse rounded"></div>
+                        </div>
+                      ) : skinInfo ? (
                         <>
                           <a href={`/skins/${skinInfo.id}`} className="block" tabIndex={-1} onClick={saveScrollPosition}>
                             <img src={skinInfo.image} alt={skinInfo.name} className="w-24 h-24 object-contain rounded mb-2 shadow transition-transform hover:scale-105" />
@@ -953,9 +974,10 @@ export default function LoadoutDetail() {
                           )}
                         </>
                       ) : (
-                        <>
-                          <img src={defaultImage} alt={weapon.name} className="w-24 h-24 object-contain rounded mb-2 shadow" />
-                        </>
+                        <div className="w-full flex flex-col items-center">
+                          <img src={defaultImage} alt={weapon.name} className="w-24 h-24 object-contain rounded mb-2 shadow opacity-40" />
+                          <div className="text-xs text-dark-text-muted">No skin selected</div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -980,7 +1002,7 @@ export default function LoadoutDetail() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {skins.map(skin => {
-                  const enabledWears = skin.wears_extended?.filter(w => w.enabled) || [];
+                  const enabledWears = skin.wears_extended?.filter(w => w.enabled && w.variant === 'normal') || [];
                   const minPrice = enabledWears.length > 0 ? Math.min(...enabledWears.map(w => w.price)) : 0;
                   const maxPrice = enabledWears.length > 0 ? Math.max(...enabledWears.map(w => w.price)) : 0;
                   return (
@@ -1044,20 +1066,49 @@ export default function LoadoutDetail() {
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                {selectedSkin.wears_extended?.filter(w => w.enabled).map(wear => (
-                  <button
-                    key={wear.wear}
-                    onClick={() => handleWearSelect(wear.wear)}
-                    disabled={saving}
-                    className="w-full p-3 border rounded-lg hover:bg-gray-50 text-left transition-colors"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{wear.wear}</span>
-                      <span className="text-green-600 font-bold">${wear.price}</span>
+              <div className="space-y-4">
+                {['FN', 'MW', 'FT', 'WW', 'BS'].map(wearGrade => {
+                  const wearVariants = selectedSkin.wears_extended?.filter(w => w.wear === wearGrade && w.enabled) || [];
+                  if (wearVariants.length === 0) return null;
+
+                  const variantColors = {
+                    normal: 'text-dark-text-primary',
+                    stattrak: 'text-orange-400',
+                    souvenir: 'text-yellow-400'
+                  };
+                  const variantLabels = {
+                    normal: 'Normal',
+                    stattrak: 'StatTrak',
+                    souvenir: 'Souvenir'
+                  };
+
+                  return (
+                    <div key={wearGrade} className="flex flex-col gap-2">
+                      <div className="text-sm font-medium text-dark-text-secondary">{wearGrade}</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {wearVariants.map(wear => (
+                          <button
+                            key={`${wear.wear}-${wear.variant}`}
+                            onClick={() => handleWearSelect(wear.wear)}
+                            disabled={saving}
+                            className={`p-3 rounded-lg border font-bold transition-all text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary flex flex-col items-center justify-center gap-1 ${
+                              selectedWear === wear.wear
+                                ? 'bg-accent-primary text-white border-accent-primary shadow-lg scale-105'
+                                : 'bg-dark-bg-secondary text-dark-text-primary border-dark-border-primary/40 hover:bg-accent-primary/10 hover:scale-105'
+                            }`}
+                          >
+                            <div className={`font-bold text-xs ${variantColors[wear.variant as keyof typeof variantColors]}`}>
+                              {variantLabels[wear.variant as keyof typeof variantLabels]}
+                            </div>
+                            <div className="text-xs opacity-75">
+                              ${wear.price}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

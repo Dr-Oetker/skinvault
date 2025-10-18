@@ -4,6 +4,7 @@ import { useAuth } from '../store/auth';
 import { isAdmin } from '../utils/admin';
 import { supabase } from '../supabaseClient';
 import { getSideImage, getWeaponImage } from '../utils/images';
+import { selectFrom, updateTable, insertInto, deleteFrom } from '../utils/supabaseApi';
 
 interface Skin {
   id: string;
@@ -17,6 +18,7 @@ interface WearEntry {
   wear: string;
   price: number;
   enabled: boolean;
+  variant: 'normal' | 'stattrak' | 'souvenir';
 }
 
 interface OfficialLoadout {
@@ -155,6 +157,7 @@ export default function AdminLoadouts() {
   const [showWearSelection, setShowWearSelection] = useState(false);
   const [totalCost, setTotalCost] = useState(0);
   const [selectedSkinsInfo, setSelectedSkinsInfo] = useState<Record<string, SelectedSkinInfo>>({});
+  const [skinsLoading, setSkinsLoading] = useState(true); // Track if skin info is still loading
   const [showWeaponTypeModal, setShowWeaponTypeModal] = useState<null | 'knives' | 'gloves'>(null);
   const [weaponTypeOptions, setWeaponTypeOptions] = useState<{ id: string; name: string }[]>([]);
 
@@ -178,15 +181,25 @@ export default function AdminLoadouts() {
   }, [user, navigate]);
 
   const fetchData = async () => {
+    console.log('📊 Fetching loadouts data using REST API...');
+    
     try {
-      const { data: loadoutsData } = await supabase
-        .from('official_loadouts')
-        .select('*')
-        .order('created_at', { ascending: false });
-      setLoadouts(loadoutsData || []);
+      const { data, error } = await selectFrom<OfficialLoadout[]>('official_loadouts', {
+        order: { column: 'created_at', ascending: false }
+      });
+      
+      if (error) {
+        console.error('❌ Query error:', error);
+        setLoadouts([]);
+      } else {
+        console.log('✅ Loadouts data fetched:', (data as any)?.length || 0, 'items');
+        setLoadouts((data as any) || []);
+      }
+      
       setLoading(false);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching data:', error);
+      setLoadouts([]);
       setLoading(false);
     }
   };
@@ -199,6 +212,7 @@ export default function AdminLoadouts() {
     setActiveSide('t');
     setSelectedSkinsInfo({});
     setTotalCost(0);
+    setSkinsLoading(false); // New loadout doesn't need loading
     setShowCreateForm(true);
   };
 
@@ -215,12 +229,13 @@ export default function AdminLoadouts() {
   };
 
   const fetchLoadoutItems = async (loadoutId: string) => {
+    setSkinsLoading(true); // Start loading
+    
     // Fetch the official loadout with all skin fields
-    const { data: loadoutData } = await supabase
-      .from('official_loadouts')
-      .select('*')
-      .eq('id', loadoutId)
-      .single();
+    const { data: loadoutData } = await selectFrom('official_loadouts', {
+      eq: { id: loadoutId },
+      single: true
+    });
 
     const skinInfo: Record<string, SelectedSkinInfo> = {};
     
@@ -241,11 +256,11 @@ export default function AdminLoadouts() {
             const wearField = `${weaponKey}_wear`;
             const selectedWear = loadoutData[wearField as keyof typeof loadoutData] as string | undefined;
             
-            const { data: skin } = await supabase
-              .from('skins')
-              .select('id, name, image, wears_extended')
-              .eq('id', skinId)
-              .single();
+            const { data: skin } = await selectFrom('skins', {
+              select: 'id, name, image, wears_extended',
+              eq: { id: skinId },
+              single: true
+            });
             
             if (skin) {
               let wear: string | undefined = undefined;
@@ -253,14 +268,14 @@ export default function AdminLoadouts() {
               
               if (selectedWear) {
                 wear = selectedWear;
-                // Find the price for the selected wear
-                const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled);
+                // Find the price for the selected wear (normal variant)
+                const wearEntry = skin.wears_extended?.find((w: WearEntry) => w.wear === selectedWear && w.enabled && w.variant === 'normal');
                 if (wearEntry) {
                   price = wearEntry.price;
                 }
               } else if (skin.wears_extended && Array.isArray(skin.wears_extended)) {
-                // Fallback to first enabled wear
-                const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled);
+                // Fallback to first enabled normal wear
+                const enabledWear = skin.wears_extended.find((w: WearEntry) => w.enabled && w.variant === 'normal');
                 if (enabledWear) {
                   wear = enabledWear.wear;
                   price = enabledWear.price;
@@ -284,6 +299,7 @@ export default function AdminLoadouts() {
     
     setSelectedSkinsInfo(skinInfo);
     calculateTotalCost(skinInfo);
+    setSkinsLoading(false); // End loading
   };
 
   const calculateTotalCost = (skinInfo: Record<string, SelectedSkinInfo>) => {
@@ -300,49 +316,76 @@ export default function AdminLoadouts() {
     }
 
     setSaving(true);
+    console.log('🔄 Starting save operation...');
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('HARD_TIMEOUT')), 10000); // 10 second hard limit
+    });
 
     try {
+      // Build skin data
+      console.log('📝 Building skin update data...');
+      const skinUpdateData = await buildSkinUpdateData();
+      console.log('✅ Skin data built');
+      
       if (isEditing && selectedLoadout) {
-        // Update existing loadout with skin data
+        console.log('📤 Updating existing loadout using REST API...');
         const updateData = {
           title,
           description,
           updated_at: new Date().toISOString(),
-          ...await buildSkinUpdateData()
+          ...skinUpdateData
         };
 
-        const { error: loadoutError } = await supabase
-          .from('official_loadouts')
-          .update(updateData)
-          .eq('id', selectedLoadout.id);
+        const { error: loadoutError } = await updateTable(
+          'official_loadouts',
+          updateData,
+          { eq: { id: selectedLoadout.id } }
+        );
 
         if (loadoutError) throw loadoutError;
       } else {
-        // Create new loadout with skin data
+        console.log('📤 Creating new loadout using REST API...');
         const insertData = {
           title,
           description,
           created_by: user.id,
-          ...await buildSkinUpdateData()
+          ...skinUpdateData
         };
 
-        const { data: newLoadout, error: loadoutError } = await supabase
-          .from('official_loadouts')
-          .insert(insertData)
-          .select()
-          .single();
+        const { error: loadoutError } = await insertInto(
+          'official_loadouts',
+          insertData,
+          { select: true }
+        );
 
         if (loadoutError) throw loadoutError;
       }
-
-      await fetchData();
+      
+      console.log('✅ Database operation completed');
+      
+      // If we get here, save succeeded
+      console.log('✅ Loadout saved successfully');
       setShowCreateForm(false);
-      alert('Loadout saved successfully!');
-    } catch (error) {
-      console.error('Error saving loadout:', error);
-      alert('Error saving loadout');
-    } finally {
       setSaving(false);
+      alert('Loadout saved successfully!');
+      
+      // Refresh data asynchronously - don't wait for it
+      fetchData().catch(err => console.error('Error refreshing loadouts:', err));
+      
+    } catch (error: any) {
+      console.error('❌ Error saving loadout:', error);
+      setSaving(false);
+      
+      if (error.message === 'HARD_TIMEOUT') {
+        alert('Save operation timed out after 10 seconds. The page will reload to recover.');
+        setTimeout(() => window.location.reload(), 2000);
+      } else if (error.name === 'AbortError') {
+        alert('Save operation timed out. Please check your connection and try again.');
+      } else {
+        alert('Error saving loadout: ' + (error.message || 'Unknown error'));
+      }
     }
   };
 
@@ -369,10 +412,11 @@ export default function AdminLoadouts() {
     if (!confirm('Are you sure you want to delete this loadout?')) return;
 
     try {
-      await supabase
-        .from('official_loadouts')
-        .delete()
-        .eq('id', loadoutId);
+      const { error } = await deleteFrom('official_loadouts', {
+        eq: { id: loadoutId }
+      });
+
+      if (error) throw error;
 
       await fetchData();
       alert('Loadout deleted successfully!');
@@ -668,7 +712,13 @@ export default function AdminLoadouts() {
             {/* Knives Slot */}
             <div className="border rounded-lg p-4 flex flex-col items-center relative">
               <h3 className="font-semibold mb-3 text-center w-full">Knives</h3>
-              {selectedSkinsInfo[`knives_${activeSide}side`] ? (
+              {skinsLoading ? (
+                <div className="w-full flex flex-col items-center">
+                  <div className="w-32 h-32 bg-gray-200 animate-pulse rounded mb-2"></div>
+                  <div className="w-24 h-4 bg-gray-200 animate-pulse rounded mb-1"></div>
+                  <div className="w-16 h-3 bg-gray-200 animate-pulse rounded"></div>
+                </div>
+              ) : selectedSkinsInfo[`knives_${activeSide}side`] ? (
                 <div className="space-y-2 w-full flex flex-col items-center">
                   <button
                     onClick={() => handleDeselectSkin(`knives_${activeSide}side`)}
@@ -707,7 +757,13 @@ export default function AdminLoadouts() {
             {/* Gloves Slot */}
             <div className="border rounded-lg p-4 flex flex-col items-center relative">
               <h3 className="font-semibold mb-3 text-center w-full">Gloves</h3>
-              {selectedSkinsInfo[`gloves_${activeSide}side`] ? (
+              {skinsLoading ? (
+                <div className="w-full flex flex-col items-center">
+                  <div className="w-32 h-32 bg-gray-200 animate-pulse rounded mb-2"></div>
+                  <div className="w-24 h-4 bg-gray-200 animate-pulse rounded mb-1"></div>
+                  <div className="w-16 h-3 bg-gray-200 animate-pulse rounded"></div>
+                </div>
+              ) : selectedSkinsInfo[`gloves_${activeSide}side`] ? (
                 <div className="space-y-2 w-full flex flex-col items-center">
                   <button
                     onClick={() => handleDeselectSkin(`gloves_${activeSide}side`)}
@@ -759,7 +815,13 @@ export default function AdminLoadouts() {
                     <div key={weapon.key} className="border rounded-lg p-3 flex flex-col items-center relative">
                       <h3 className="font-semibold mb-2 text-sm text-center w-full">{weapon.name}</h3>
                       <div className="w-full flex flex-col items-center">
-                        {skinInfo ? (
+                        {skinsLoading ? (
+                          <div className="w-full flex flex-col items-center">
+                            <div className="w-24 h-24 bg-gray-200 animate-pulse rounded mb-2"></div>
+                            <div className="w-20 h-3 bg-gray-200 animate-pulse rounded mb-1"></div>
+                            <div className="w-16 h-2 bg-gray-200 animate-pulse rounded"></div>
+                          </div>
+                        ) : skinInfo ? (
                           <>
                             <button
                               onClick={() => handleDeselectSkin(weapon.key)}
@@ -784,7 +846,7 @@ export default function AdminLoadouts() {
                           </>
                         ) : (
                           <>
-                            <img src={defaultImage} alt={weapon.name} className="w-24 h-24 object-contain rounded mb-2 shadow" />
+                            <img src={defaultImage} alt={weapon.name} className="w-24 h-24 object-contain rounded mb-2 shadow opacity-50" />
                             <button
                               onClick={() => handleWeaponSelect(weapon.key)}
                               className="w-full py-1 px-3 border border-gray-300 rounded hover:bg-gray-50 text-sm mt-2"
