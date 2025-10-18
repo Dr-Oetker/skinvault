@@ -1092,7 +1092,7 @@ export default function LoadoutDetail() {
                             onClick={() => handleWearSelect(wear.wear)}
                             disabled={saving}
                             className={`p-3 rounded-lg border font-bold transition-all text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-accent-primary flex flex-col items-center justify-center gap-1 ${
-                              selectedWear === wear.wear
+                              selectedSkinsInfo[selectedWeaponId]?.wear === wear.wear
                                 ? 'bg-accent-primary text-white border-accent-primary shadow-lg scale-105'
                                 : 'bg-dark-bg-secondary text-dark-text-primary border-dark-border-primary/40 hover:bg-accent-primary/10 hover:scale-105'
                             }`}

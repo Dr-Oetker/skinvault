@@ -45,7 +45,7 @@ export default function Loadouts() {
       });
       
       if (loadoutData) {
-        setLoadouts(loadoutData.map(loadout => ({ ...loadout, loadout_type: 'loadout' as const })));
+        setLoadouts(loadoutData.map((loadout: any) => ({ ...loadout, loadout_type: 'loadout' as const })));
       }
 
       setLoading(false);

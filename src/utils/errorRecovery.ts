@@ -163,10 +163,10 @@ export class ErrorRecoveryManager {
   private async attemptNetworkRecovery(): Promise<boolean> {
     try {
       // Simple network connectivity check
-      const response = await fetch(supabase.supabaseUrl + '/rest/v1/', {
+      const response = await fetch(import.meta.env.VITE_SUPABASE_URL + '/rest/v1/', {
         method: 'HEAD',
         headers: {
-          'apikey': supabase.supabaseKey,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
       });
 

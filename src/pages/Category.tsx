@@ -52,7 +52,7 @@ export default function Category() {
       if (weaponsData) {
         // For each weapon, get the first skin image and count all skins
         const weaponsWithImages = await Promise.all(
-          weaponsData.map(async (weapon) => {
+          weaponsData.map(async (weapon: any) => {
             // Get first skin image
             const { data: firstSkinData } = await selectFrom("skins", {
               select: "id, image",

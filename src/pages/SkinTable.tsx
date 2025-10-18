@@ -276,14 +276,14 @@ export default function SkinTable() {
         }
 
         // Debug: Log unique rarities found
-        const uniqueRarities = [...new Set(skinsData.map(skin => skin.rarity))];
+        const uniqueRarities = [...new Set(skinsData.map((skin: any) => skin.rarity))];
         console.log("Unique rarities found:", uniqueRarities);
         console.log("Total skins loaded:", skinsData.length);
 
         // Group skins by collection and rarity
         const collectionsMap = new Map<string, Map<string, Skin[]>>();
 
-        skinsData.forEach(skin => {
+        skinsData.forEach((skin: any) => {
           // Extract collection names from the collections array
           if (skin.collections && Array.isArray(skin.collections) && skin.collections.length > 0) {
             skin.collections.forEach((collection: any) => {

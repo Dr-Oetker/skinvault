@@ -41,7 +41,7 @@ export async function withOperationTimeout<T>(
   operation: () => Promise<T>,
   timeoutMs: number = 10000
 ): Promise<T> {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: NodeJS.Timeout | undefined;
   
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -55,10 +55,10 @@ export async function withOperationTimeout<T>(
       operation(),
       timeoutPromise
     ]);
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     return result;
   } catch (error: any) {
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     console.error('❌ Operation error or timeout:', error);
     
     // Force a page reload if we're completely stuck
@@ -79,7 +79,7 @@ export async function withCriticalTimeout<T>(
   operation: () => Promise<T>,
   timeoutMs: number = 5000
 ): Promise<T> {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: NodeJS.Timeout | undefined;
   let completed = false;
   
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -102,11 +102,11 @@ export async function withCriticalTimeout<T>(
       timeoutPromise
     ]);
     completed = true;
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     return result;
   } catch (error: any) {
     completed = true;
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
     throw error;
   }
 }

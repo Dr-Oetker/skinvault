@@ -206,7 +206,7 @@ export default function Profile() {
 
     // Then, fetch skin data for each tracker
     const trackersWithSkins = await Promise.all(
-      trackerData.map(async (tracker) => {
+      trackerData.map(async (tracker: any) => {
         const { data: skinData } = await selectFrom("skins", {
           select: "id, name, image, wears_extended, last_price_update",
           eq: { id: tracker.skin_id },
