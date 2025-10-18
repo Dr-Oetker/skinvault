@@ -108,6 +108,58 @@ export const trackNavigation = (from: string, to: string) => {
   trackEvent('navigation', 'navigation', `${from}_to_${to}`);
 };
 
+// ============================================
+// CUSTOM TRACKING FOR USER & NAVIGATION
+// ============================================
+
+// Track user login
+export const trackUserLogin = (method: 'email' | 'google' | 'other' = 'email') => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', 'login', {
+      method: method,
+      event_category: 'authentication',
+      event_label: `user_login_${method}`,
+    });
+    console.log('📊 Login tracked:', method);
+  }
+};
+
+// Track user signup/registration
+export const trackUserSignup = (method: 'email' | 'google' | 'other' = 'email') => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', 'sign_up', {
+      method: method,
+      event_category: 'authentication',
+      event_label: `user_signup_${method}`,
+    });
+    console.log('📊 Signup tracked:', method);
+  }
+};
+
+// Track header menu clicks
+export const trackHeaderMenuClick = (menuItem: string) => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', 'header_menu_click', {
+      event_category: 'navigation',
+      event_label: menuItem,
+      menu_location: 'header',
+    });
+    console.log('📊 Header menu click tracked:', menuItem);
+  }
+};
+
+// Track weapon side menu clicks
+export const trackWeaponMenuClick = (weaponName: string) => {
+  if (typeof window !== 'undefined' && window.gtag) {
+    window.gtag('event', 'weapon_menu_click', {
+      event_category: 'navigation',
+      event_label: weaponName,
+      menu_location: 'side_menu',
+    });
+    console.log('📊 Weapon menu click tracked:', weaponName);
+  }
+};
+
 // Declare global types for TypeScript
 declare global {
   interface Window {

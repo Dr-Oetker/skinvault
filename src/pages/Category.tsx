@@ -6,6 +6,7 @@ import LoadingSkeleton from '../components/LoadingSkeleton';
 import { getWeaponImage } from '../utils/images';
 import { useScrollPosition } from '../utils/scrollPosition';
 import { selectFrom } from '../utils/supabaseApi';
+import { trackWeaponMenuClick } from '../utils/analytics';
 
 interface Weapon {
   id: string;
@@ -190,6 +191,8 @@ export default function Category() {
               to={`/weapons/${encodeURIComponent(weapon.name)}`}
               className="block group"
               onClick={(e) => {
+                // Track weapon click
+                trackWeaponMenuClick(weapon.name);
                 // Save current scroll position before navigating to weapon page
                 e.preventDefault();
                 savePosition();

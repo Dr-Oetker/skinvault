@@ -3,6 +3,7 @@ import { useAuth } from "../store/auth";
 import { useNavigate } from "react-router-dom";
 import { logoImage } from '../utils/images';
 import { PasswordResetService } from '../services/passwordResetService';
+import { trackUserLogin, trackUserSignup } from '../utils/analytics';
 
 export default function Login() {
   const { user, login, register, loading } = useAuth();
@@ -43,7 +44,12 @@ export default function Login() {
     setError(null);
     setSuccess(null);
     const result = await login(email, password);
-    if (result && result.error) setError(result.error.message);
+    if (result && result.error) {
+      setError(result.error.message);
+    } else {
+      // Track successful login
+      trackUserLogin('email');
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -51,8 +57,13 @@ export default function Login() {
     setError(null);
     setSuccess(null);
     const result = await register(email, password);
-    if (result && result.error) setError(result.error.message);
-    else setSuccess("Registration successful! Please check your email to confirm your account.");
+    if (result && result.error) {
+      setError(result.error.message);
+    } else {
+      setSuccess("Registration successful! Please check your email to confirm your account.");
+      // Track successful signup
+      trackUserSignup('email');
+    }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
