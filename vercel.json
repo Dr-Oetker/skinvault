@@ -1,14 +1,5 @@
 {
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "installCommand": "npm install --omit=optional",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "@vercel/node@3.2.23"
-    },
-    "api/**/*.js": {
-      "runtime": "@vercel/node@3.2.23"
-    }
-  }
+  "framework": "vite"
 }
