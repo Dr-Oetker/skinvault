@@ -1,14 +1,14 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --omit=optional --force",
+  "installCommand": "npm install --omit=optional ",
   "functions": {
     "api/**/*.ts": {
-      "runtime": "@vercel/node@3.0.7"
+      "runtime": "nodejs22.x"
     },
     "api/**/*.js": {
-      "runtime": "@vercel/node@3.0.7"
+      "runtime": "nodejs22.x"
     }
   }
 }
