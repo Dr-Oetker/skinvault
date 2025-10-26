@@ -19,11 +19,25 @@ export default defineConfig({
     target: 'esnext',
     // Disable source maps to reduce complexity
     sourcemap: false,
+    // Optimize for Node.js 22
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          supabase: ['@supabase/supabase-js']
+        }
+      }
+    }
   },
   // Use esbuild for dependency optimization
   optimizeDeps: {
     esbuildOptions: {
       target: 'esnext'
     }
+  },
+  // Ensure compatibility with Node.js 22
+  define: {
+    global: 'globalThis'
   }
 })
