@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --omit=optional",
+  "installCommand": "npm install --omit=optional --force",
   "functions": {
     "api/**/*.ts": {
       "runtime": "@vercel/node@3.0.7"
