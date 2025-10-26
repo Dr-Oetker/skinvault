@@ -2,13 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --omit=optional",
   "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@3.0.7"
+    },
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "@vercel/node@3.0.7"
     }
-  },
-  "env": {
-    "NODE_OPTIONS": "--no-experimental-fetch"
   }
 }
