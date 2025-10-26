@@ -23,6 +23,10 @@ import Contact from "./pages/Contact";
 import CookieSettings from "./pages/CookieSettings";
 import Category from "./pages/Category";
 import SkinTable from "./pages/SkinTable";
+import Tools from "./pages/Tools";
+import TradeUpOpportunities from "./pages/TradeUpOpportunities";
+import CasePriceChecker from "./pages/CasePriceChecker";
+import CaseDetail from "./pages/CaseDetail";
 import Error404 from "./pages/Error404";
 import Error500 from "./pages/Error500";
 import Error403 from "./pages/Error403";
@@ -89,6 +93,10 @@ function App() {
           <Route path="skins/:skinId" element={<Skin />} />
           <Route path="category/:categoryName" element={<Category />} />
           <Route path="skin-table" element={<SkinTable />} />
+          <Route path="tools" element={<Tools />} />
+          <Route path="tools/tradeup-opportunities" element={<TradeUpOpportunities />} />
+          <Route path="tools/case-price-checker" element={<CasePriceChecker />} />
+          <Route path="tools/case-price-checker/:caseId" element={<CaseDetail />} />
           <Route path="resell-tracker" element={<ResellTracker />} />
           <Route path="admin" element={<AdminDashboard />} />
           <Route path="admin/loadouts" element={<AdminLoadouts />} />

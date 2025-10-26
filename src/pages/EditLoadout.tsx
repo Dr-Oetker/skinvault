@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import ImageWithFallback from '../components/ImageWithFallback';
 import { getSideImage, getWeaponImage } from '../utils/images';
 import { selectFrom, updateTable } from '../utils/supabaseApi';
 
@@ -721,7 +722,7 @@ export default function EditLoadout() {
                       className="min-w-0 max-w-xs flex flex-col items-center justify-between h-full min-h-[340px] bg-dark-bg-secondary rounded-xl p-4 shadow-xl ring-2 ring-accent-primary/60 transition-all duration-300 transform-gpu group hover:scale-102 hover:shadow-[0_0_16px_4px_rgba(128,0,255,0.18)] hover:ring-[4px] hover:ring-accent-primary/70 hover:ring-offset-1 hover:ring-offset-accent-primary/10 w-full"
                     >
                       <div className="relative w-32 h-32 mb-2">
-                        <img src={skin.image} alt={skin.name} className="w-32 h-32 object-contain rounded" />
+                        <ImageWithFallback src={skin.image} alt={skin.name} className="w-32 h-32 object-contain rounded" />
                         <span role="button" tabIndex={0} onClick={e => { e.stopPropagation(); setShowImageModal(true); setImageModalUrl(skin.image); }}
                           className="absolute bottom-1 right-1 bg-black/60 rounded-full p-1 hover:bg-black/80 focus:outline-none cursor-pointer" title="Enlarge image"
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowImageModal(true); setImageModalUrl(skin.image); } }}>

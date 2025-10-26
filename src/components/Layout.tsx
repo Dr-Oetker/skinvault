@@ -331,10 +331,8 @@ export default function Layout() {
               </Link>
               {/* Desktop Navigation */}
               <div className="hidden md:flex items-center gap-6">
-                <Link to="/sticker-crafts" className="nav-link" onClick={() => trackHeaderMenuClick('Sticker Crafts')}>Sticker Crafts</Link>
-                <Link to="/loadouts" className="nav-link" onClick={() => trackHeaderMenuClick('Loadouts')}>Loadouts</Link>
                 <Link to="/skin-table" className="nav-link" onClick={() => trackHeaderMenuClick('Skin Table')}>Skin Table</Link>
-                <Link to="/resell-tracker" className="nav-link" onClick={() => trackHeaderMenuClick('Resell Tracker')}>Resell Tracker</Link>
+                <Link to="/tools" className="nav-link" onClick={() => trackHeaderMenuClick('Tools')}>Tools</Link>
                 {user && isAdmin(user) && (
                   <div className="flex items-center gap-4">
                     <span className="text-dark-text-muted">|</span>
@@ -452,10 +450,8 @@ export default function Layout() {
         {isMobileMenuOpen && (
           <div className="md:hidden glass-card border-t border-dark-border-primary/60 animate-slide-down rounded-b-2xl">
             <div className="px-4 py-4 space-y-4">
-              <Link to="/sticker-crafts" onClick={() => { trackHeaderMenuClick('Sticker Crafts'); setIsMobileMenuOpen(false); }} className="block nav-link py-2">Sticker Crafts</Link>
-              <Link to="/loadouts" onClick={() => { trackHeaderMenuClick('Loadouts'); setIsMobileMenuOpen(false); }} className="block nav-link py-2">Loadouts</Link>
               <Link to="/skin-table" onClick={() => { trackHeaderMenuClick('Skin Table'); setIsMobileMenuOpen(false); }} className="block nav-link py-2">Skin Table</Link>
-              <Link to="/resell-tracker" onClick={() => { trackHeaderMenuClick('Resell Tracker'); setIsMobileMenuOpen(false); }} className="block nav-link py-2">Resell Tracker</Link>
+              <Link to="/tools" onClick={() => { trackHeaderMenuClick('Tools'); setIsMobileMenuOpen(false); }} className="block nav-link py-2">Tools</Link>
               {user ? (
                 <>
                   <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="block btn-primary w-full text-center">Profile</Link>

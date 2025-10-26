@@ -5,6 +5,7 @@ import { useAuth } from "../store/auth";
 import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
 import LoadingSkeleton from '../components/LoadingSkeleton';
+import ImageWithFallback from '../components/ImageWithFallback';
 import { scrollPositionManager } from '../utils/scrollPosition';
 import { selectFrom, insertInto } from '../utils/supabaseApi';
 import { trackSkinView, trackSkinFavorite, trackResellTrackerAdd } from '../utils/analytics';
@@ -239,7 +240,7 @@ export default function SkinDetail() {
       <div className="glass-card p-6 md:p-8 shadow-dark-lg border border-dark-border-primary/60 mb-8">
       <div className="flex flex-col md:flex-row gap-8 items-center mb-6">
           <div className="relative w-64 h-64">
-            <img src={skin.image} alt={skin.name} className="w-64 h-64 object-contain rounded-xl border border-dark-border-primary/40 shadow bg-dark-bg-secondary" />
+            <ImageWithFallback src={skin.image} alt={skin.name} className="w-64 h-64 object-contain rounded-xl border border-dark-border-primary/40 shadow bg-dark-bg-secondary" />
             <span 
               role="button" 
               tabIndex={0} 

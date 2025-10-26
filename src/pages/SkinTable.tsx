@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import LoadingSkeleton from "../components/LoadingSkeleton";
+import ImageWithFallback from "../components/ImageWithFallback";
 import { selectFrom } from "../utils/supabaseApi";
-import { trackTradeUpView } from "../utils/analytics";
 
 interface WearEntry {
   wear: string;
@@ -28,24 +28,6 @@ interface CollectionData {
   skins: Skin[];
 }
 
-interface TradeUpOpportunity {
-  collectionName: string;
-  wear: string;
-  lowerRarity: string;
-  higherRarity: string;
-  lowerRaritySkin: Skin;
-  higherRaritySkin: Skin;
-  lowerRarityPrice: number;
-  higherRarityPrice: number;
-  combinedPrice: number;
-  profit: number;
-  profitPercent: number;
-  totalHigherRaritySkins: number;
-  profitableHigherRaritySkins: number;
-  hitProbability: number;
-  expectedProfit: number;
-}
-
 // Rarity order for sorting (higher index = higher rarity)
 const rarityOrder = {
   'Consumer Grade': 0,
@@ -58,195 +40,12 @@ const rarityOrder = {
   'Extraordinary': 6,
 };
 
-const wearOrder = ['FN', 'MW', 'FT', 'WW', 'BS'];
 
-// Helper function to get next rarity in the hierarchy
-const getNextRarity = (currentRarity: string): string | null => {
-  const rarityHierarchy = ['Consumer Grade', 'Industrial Grade', 'Mil-Spec', 'Mil-Spec Grade', 'Restricted', 'Classified', 'Covert'];
-  const currentIndex = rarityHierarchy.indexOf(currentRarity);
-  
-  if (currentIndex === -1 || currentIndex >= rarityHierarchy.length - 1) return null;
-  
-  // Skip duplicate Mil-Spec entries
-  if (rarityHierarchy[currentIndex + 1] === 'Mil-Spec Grade' && currentRarity === 'Mil-Spec') {
-    return currentIndex + 2 < rarityHierarchy.length ? rarityHierarchy[currentIndex + 2] : null;
-  }
-  if (rarityHierarchy[currentIndex + 1] === 'Mil-Spec' && currentRarity === 'Mil-Spec Grade') {
-    return currentIndex + 2 < rarityHierarchy.length ? rarityHierarchy[currentIndex + 2] : null;
-  }
-  
-  return rarityHierarchy[currentIndex + 1];
-};
 
-// Calculate trade-up opportunities across collections
-const calculateTradeUpOpportunities = (collections: CollectionData[]): TradeUpOpportunity[] => {
-  const opportunities: TradeUpOpportunity[] = [];
-
-  collections.forEach(collection => {
-    // Group skins by rarity
-    const skinsByRarity = new Map<string, Skin[]>();
-    collection.skins.forEach(skin => {
-      if (!skinsByRarity.has(skin.rarity)) {
-        skinsByRarity.set(skin.rarity, []);
-      }
-      skinsByRarity.get(skin.rarity)!.push(skin);
-    });
-
-    // For each rarity, check if 10x lower rarity is cheaper than 1x next rarity
-    skinsByRarity.forEach((skins, rarity) => {
-      const nextRarity = getNextRarity(rarity);
-      if (!nextRarity) return;
-
-      const higherRaritySkins = skinsByRarity.get(nextRarity);
-      if (!higherRaritySkins || higherRaritySkins.length === 0) return;
-
-      // Check each wear grade
-      wearOrder.forEach(wear => {
-        // Find cheapest skin in current rarity for this wear
-        let cheapestLowerSkin: Skin | null = null;
-        let cheapestLowerPrice = Infinity;
-
-        skins.forEach(skin => {
-          if (!skin.wears_extended) return;
-          const wearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === 'normal');
-          if (wearEntry && wearEntry.price > 0 && wearEntry.price < cheapestLowerPrice) {
-            cheapestLowerPrice = wearEntry.price;
-            cheapestLowerSkin = skin;
-          }
-        });
-
-        if (!cheapestLowerSkin || cheapestLowerPrice === Infinity) return;
-
-        // Calculate if 10x lower is cheaper than 1x higher
-        const combinedPrice = cheapestLowerPrice * 10;
-        
-        // Count total higher rarity skins in the collection (regardless of wear availability)
-        const totalHigherRaritySkins = higherRaritySkins.length;
-
-        if (totalHigherRaritySkins === 0) return;
-
-        // For each higher rarity skin, determine if it would be profitable
-        // If the skin doesn't exist in the target wear, it drops to the next available wear
-        let profitableOutcomes = 0;
-        let totalExpectedProfit = 0;
-
-        higherRaritySkins.forEach(skin => {
-          if (!skin.wears_extended) return;
-          
-          // Find the actual price this skin would have in the trade-up
-          // Start with target wear, then fall back to next available wear if not found
-          const targetWearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === 'normal' && w.price > 0);
-          
-          let actualPrice = 0;
-          let actualWear = wear;
-          
-          if (targetWearEntry) {
-            // Skin exists in target wear
-            actualPrice = targetWearEntry.price;
-          } else {
-            // Skin doesn't exist in target wear, find next available wear
-            const wearOrder = ['fn', 'mw', 'ft', 'ww', 'bs'];
-            const currentWearIndex = wearOrder.indexOf(wear);
-            
-            for (let i = currentWearIndex + 1; i < wearOrder.length; i++) {
-              const fallbackWear = wearOrder[i];
-              const fallbackEntry = skin.wears_extended.find(w => w.wear === fallbackWear && w.enabled && w.variant === 'normal' && w.price > 0);
-              if (fallbackEntry) {
-                actualPrice = fallbackEntry.price;
-                actualWear = fallbackWear;
-                break;
-              }
-            }
-          }
-
-          // Check if this outcome would be profitable
-          if (actualPrice > combinedPrice) {
-            profitableOutcomes++;
-            totalExpectedProfit += actualPrice - combinedPrice;
-          }
-        });
-
-        // Only show if there's at least one profitable outcome
-        if (profitableOutcomes === 0) return;
-
-        // Find a representative higher rarity skin for display (first profitable one)
-        let representativeHigherSkin: Skin | null = null;
-        let representativeHigherPrice = 0;
-
-        higherRaritySkins.forEach(skin => {
-          if (representativeHigherSkin) return; // Already found one
-          if (!skin.wears_extended) return;
-          
-          // Find the actual price this skin would have in the trade-up
-          const targetWearEntry = skin.wears_extended.find(w => w.wear === wear && w.enabled && w.variant === 'normal' && w.price > 0);
-          
-          let actualPrice = 0;
-          
-          if (targetWearEntry) {
-            actualPrice = targetWearEntry.price;
-          } else {
-            // Find next available wear
-            const wearOrder = ['fn', 'mw', 'ft', 'ww', 'bs'];
-            const currentWearIndex = wearOrder.indexOf(wear);
-            
-            for (let i = currentWearIndex + 1; i < wearOrder.length; i++) {
-              const fallbackWear = wearOrder[i];
-              const fallbackEntry = skin.wears_extended.find(w => w.wear === fallbackWear && w.enabled && w.variant === 'normal' && w.price > 0);
-              if (fallbackEntry) {
-                actualPrice = fallbackEntry.price;
-                break;
-              }
-            }
-          }
-
-          // Use this skin if it would be profitable
-          if (actualPrice > combinedPrice) {
-            representativeHigherSkin = skin;
-            representativeHigherPrice = actualPrice;
-          }
-        });
-
-        if (!representativeHigherSkin) return;
-
-        const profit = representativeHigherPrice - combinedPrice;
-        const profitPercent = (profit / combinedPrice) * 100;
-        const hitProbability = (profitableOutcomes / totalHigherRaritySkins) * 100;
-        const expectedProfit = totalExpectedProfit / totalHigherRaritySkins;
-
-        opportunities.push({
-          collectionName: collection.name,
-          wear,
-          lowerRarity: rarity,
-          higherRarity: nextRarity,
-          lowerRaritySkin: cheapestLowerSkin,
-          higherRaritySkin: representativeHigherSkin,
-          lowerRarityPrice: cheapestLowerPrice,
-          higherRarityPrice: representativeHigherPrice,
-          combinedPrice,
-          profit,
-          profitPercent,
-          totalHigherRaritySkins,
-          profitableHigherRaritySkins: profitableOutcomes,
-          hitProbability,
-          expectedProfit
-        });
-      });
-    });
-  });
-
-  // Sort by expected profit (highest first), then by hit probability
-  return opportunities.sort((a, b) => {
-    if (b.expectedProfit !== a.expectedProfit) {
-      return b.expectedProfit - a.expectedProfit;
-    }
-    return b.hitProbability - a.hitProbability;
-  });
-};
 
 export default function SkinTable() {
   const [collections, setCollections] = useState<CollectionData[]>([]);
   const [filteredCollections, setFilteredCollections] = useState<CollectionData[]>([]);
-  const [tradeUpOpportunities, setTradeUpOpportunities] = useState<TradeUpOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [collectionFilter, setCollectionFilter] = useState<string>("");
@@ -349,9 +148,6 @@ export default function SkinTable() {
         setCollections(collectionsArray);
         setFilteredCollections(collectionsArray);
 
-        // Calculate trade-up opportunities
-        const opportunities = calculateTradeUpOpportunities(collectionsArray);
-        setTradeUpOpportunities(opportunities);
       } catch (err) {
         console.error("Error fetching skins:", err);
         setError(err instanceof Error ? err.message : "Failed to load skins");
@@ -428,134 +224,6 @@ export default function SkinTable() {
         <p className="text-dark-text-muted text-sm">Browse weapon skins organized by collections</p>
       </div>
 
-      {/* Trade-Up Opportunities Section */}
-      {tradeUpOpportunities.length > 0 && (
-        <div className="glass-card p-4">
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-bold text-gradient mb-1">💰 Trade-Up Opportunities</h2>
-            <p className="text-dark-text-muted text-xs">
-              Profitable trade-up contracts sorted by expected profit
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {tradeUpOpportunities.map((opportunity, index) => (
-              <div 
-                key={`${opportunity.collectionName}-${opportunity.wear}-${opportunity.lowerRarity}`}
-                className="bg-dark-bg-tertiary/50 rounded-lg p-3 border border-dark-border-primary/60 hover:bg-dark-bg-tertiary/70 transition-colors cursor-pointer"
-                onClick={() => trackTradeUpView(opportunity.collectionName, opportunity.expectedProfit)}
-              >
-                <div className="flex items-center gap-3">
-                  {/* Rank Badge */}
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-accent-primary to-accent-secondary flex items-center justify-center font-bold text-white text-sm">
-                    #{index + 1}
-                  </div>
-
-                  {/* Opportunity Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-dark-text-primary truncate">
-                        {opportunity.collectionName}
-                      </h3>
-                      <span className="px-1.5 py-0.5 bg-dark-bg-primary rounded text-xs font-medium text-dark-text-secondary flex-shrink-0">
-                        {opportunity.wear}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <img 
-                          src={opportunity.lowerRaritySkin.image} 
-                          alt={opportunity.lowerRaritySkin.name}
-                          className="w-6 h-6 object-contain rounded"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-dark-text-primary font-medium truncate max-w-24">
-                            {opportunity.lowerRaritySkin.name.replace(/^.*\|\s+/, '')}
-                          </span>
-                          <span 
-                            className="text-xs font-medium truncate max-w-24"
-                            style={{ color: opportunity.lowerRaritySkin.rarity_color }}
-                          >
-                            {opportunity.lowerRarity}
-                          </span>
-                          <span className="text-dark-text-muted text-xs">
-                            10× ${opportunity.lowerRarityPrice}
-                          </span>
-                          <span className="text-dark-text-primary font-bold text-sm">
-                            ${opportunity.combinedPrice.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className="text-dark-text-muted">→</span>
-
-                      <div className="flex items-center gap-1.5">
-                        <img 
-                          src={opportunity.higherRaritySkin.image} 
-                          alt={opportunity.higherRaritySkin.name}
-                          className="w-6 h-6 object-contain rounded"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-dark-text-primary font-medium truncate max-w-24">
-                            {opportunity.higherRaritySkin.name.replace(/^.*\|\s+/, '')}
-                          </span>
-                          <span 
-                            className="text-xs font-medium truncate max-w-24"
-                            style={{ color: opportunity.higherRaritySkin.rarity_color }}
-                          >
-                            {opportunity.higherRarity}
-                          </span>
-                          <span className="text-dark-text-muted text-xs">
-                            ${opportunity.higherRarityPrice.toFixed(2)}
-                          </span>
-                          <span className="text-dark-text-primary font-bold text-sm">
-                            ${opportunity.higherRarityPrice.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-accent-success">
-                        +${opportunity.profit.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-dark-text-muted">
-                        {opportunity.profitPercent.toFixed(0)}% profit
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-accent-primary">
-                        {opportunity.hitProbability.toFixed(0)}%
-                      </div>
-                      <div className="text-xs text-dark-text-muted">
-                        {opportunity.profitableHigherRaritySkins}/{opportunity.totalHigherRaritySkins} hit
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-accent-warning">
-                        ${opportunity.expectedProfit.toFixed(2)}
-                      </div>
-                      <div className="text-xs text-dark-text-muted">
-                        expected
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-3 text-center text-xs text-dark-text-muted">
-            Showing {tradeUpOpportunities.length} opportunities
-          </div>
-        </div>
-      )}
 
       {/* Filter Options */}
       <div className="glass-card p-4">
@@ -632,7 +300,7 @@ export default function SkinTable() {
                               {consumerGradeSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"
@@ -791,7 +459,7 @@ export default function SkinTable() {
                               {industrialGradeSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"
@@ -950,7 +618,7 @@ export default function SkinTable() {
                               {milSpecSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"
@@ -1109,7 +777,7 @@ export default function SkinTable() {
                               {restrictedSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"
@@ -1268,7 +936,7 @@ export default function SkinTable() {
                               {classifiedSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"
@@ -1427,7 +1095,7 @@ export default function SkinTable() {
                               {covertSkins.map((skin) => (
                                 <th key={skin.id} className="text-center py-2 px-2 font-semibold text-dark-text-secondary border-r border-dark-border-primary/30 last:border-r-0">
                                   <div className="flex flex-col items-center gap-1">
-                                    <img 
+                                    <ImageWithFallback 
                                       src={skin.image} 
                                       alt={skin.name}
                                       className="w-6 h-6 object-contain rounded"

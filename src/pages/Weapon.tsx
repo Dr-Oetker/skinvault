@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import { useAuth } from "../store/auth";
 import { useFavorites } from "../store/favorites";
 import ResellTrackerModal from '../components/ResellTrackerModal';
+import ImageWithFallback from '../components/ImageWithFallback';
 import SEO, { SEOPresets } from '../components/SEO';
 import { useScrollPosition } from '../utils/scrollPosition';
 import { selectFrom, insertInto } from '../utils/supabaseApi';
@@ -683,7 +684,7 @@ export default function Weapon() {
                           </svg>
                         </button>
                       </div>
-                      <img src={skin.image} alt={skin.name} className="w-32 h-32 object-contain mb-2 rounded-xl border border-dark-border-primary/60" />
+                      <ImageWithFallback src={skin.image} alt={skin.name} className="w-32 h-32 object-contain mb-2 rounded-xl border border-dark-border-primary/60" />
                       <button
                         onClick={e => { handleTrackResell(e, skin); }}
                         className="mt-2 mb-3 px-5 py-2 rounded-full glass-card border border-accent-primary/40 text-accent-primary font-semibold flex items-center gap-2 shadow hover:bg-accent-primary/10 transition-all group/track-btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary focus-visible:ring-offset-2 hover:scale-105 hover:drop-shadow-[0_0_10px_rgba(128,0,255,0.18)] focus:scale-105 focus:drop-shadow-[0_0_10px_rgba(128,0,255,0.18)]"
