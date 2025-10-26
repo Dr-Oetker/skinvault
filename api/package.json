@@ -2,6 +2,9 @@
   "name": "skinvault-api",
   "version": "1.0.0",
   "type": "commonjs",
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.3"
   }
