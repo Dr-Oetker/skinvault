@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "vercel-build": "npm install --omit=optional && tsc -b && vite build",
-    "build:vercel": "npm install --omit=optional && tsc -b && NODE_OPTIONS='--no-experimental-fetch' vite build",
+    "vercel-build": "tsc -b && vite build",
+    "build:vercel": "tsc -b && NODE_OPTIONS='--no-experimental-fetch' vite build",
     "build:safe": "tsc -b && vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
