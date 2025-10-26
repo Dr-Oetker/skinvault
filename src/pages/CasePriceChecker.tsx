@@ -56,7 +56,7 @@ export default function CasePriceChecker() {
           throw new Error("No cases found");
         }
 
-        console.log("Fetched cases:", casesData.map(c => ({ id: c.id, name: c.case_name })));
+        console.log("Fetched cases:", casesData.map((c: any) => ({ id: c.id, name: c.case_name })));
 
         // Test: Let's see what's in case_prices table
         const { data: testPricesData, error: testPricesError } = await selectFrom("case_prices", {
@@ -64,8 +64,8 @@ export default function CasePriceChecker() {
           limit: 5
         });
         console.log("Sample case_prices data:", testPricesData);
-        console.log("Types - case_id in prices:", testPricesData?.map(p => ({ case_id: p.case_id, type: typeof p.case_id })));
-        console.log("Types - id in cases:", casesData.map(c => ({ id: c.id, type: typeof c.id })));
+        console.log("Types - case_id in prices:", testPricesData?.map((p: any) => ({ case_id: p.case_id, type: typeof p.case_id })));
+        console.log("Types - id in cases:", casesData.map((c: any) => ({ id: c.id, type: typeof c.id })));
 
         // Alternative approach: Fetch all prices and match them
         const { data: allPricesData, error: allPricesError } = await selectFrom("case_prices", {
