@@ -25,6 +25,8 @@ interface CasePrice {
   spread: number;
 }
 
+type TimePeriod = 'daily' | 'weekly' | 'monthly';
+
 export default function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
   const [caseData, setCaseData] = useState<Case | null>(null);
@@ -32,6 +34,8 @@ export default function CaseDetail() {
   const [priceHistory, setPriceHistory] = useState<CasePrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('weekly');
+  const [selectedDay, setSelectedDay] = useState<number>(0);
 
   useEffect(() => {
     const fetchCaseData = async () => {
@@ -130,6 +134,69 @@ export default function CaseDetail() {
     if (spread < 5) return "bg-accent-warning/10 border-accent-warning/30";
     return "bg-accent-error/10 border-accent-error/30";
   };
+
+  // Filter data based on time period
+  const getFilteredData = (data: CasePrice[], period: TimePeriod): CasePrice[] => {
+    if (!data || data.length === 0) return [];
+    
+    const now = new Date();
+    const filteredData: CasePrice[] = [];
+    
+    switch (period) {
+      case 'daily':
+        // Show data from the last 24 hours
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        return data.filter(item => new Date(item.recorded_at) >= oneDayAgo);
+        
+      case 'weekly':
+        // Show data from the last 7 days
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return data.filter(item => new Date(item.recorded_at) >= oneWeekAgo);
+        
+      case 'monthly':
+        // Show data from the last 30 days
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return data.filter(item => new Date(item.recorded_at) >= oneMonthAgo);
+        
+      default:
+        return data;
+    }
+  };
+
+  // Get data for a specific day
+  const getDayData = (data: CasePrice[], dayOffset: number): CasePrice[] => {
+    if (!data || data.length === 0) return [];
+    
+    const now = new Date();
+    const targetDate = new Date(now.getTime() - dayOffset * 24 * 60 * 60 * 1000);
+    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    
+    return data.filter(item => {
+      const itemDate = new Date(item.recorded_at);
+      return itemDate >= startOfDay && itemDate < endOfDay;
+    }).sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()); // Newest first
+  };
+
+  // Get available days for navigation
+  const getAvailableDays = (data: CasePrice[]): number[] => {
+    if (!data || data.length === 0) return [];
+    
+    const days = new Set<number>();
+    const now = new Date();
+    
+    data.forEach(item => {
+      const itemDate = new Date(item.recorded_at);
+      const dayOffset = Math.floor((now.getTime() - itemDate.getTime()) / (24 * 60 * 60 * 1000));
+      days.add(dayOffset);
+    });
+    
+    return Array.from(days).sort((a, b) => a - b);
+  };
+
+  const filteredPriceHistory = getFilteredData(priceHistory, timePeriod);
+  const dayData = getDayData(priceHistory, selectedDay);
+  const availableDays = getAvailableDays(priceHistory);
 
   if (loading) {
     return (
@@ -254,58 +321,132 @@ export default function CaseDetail() {
         {/* Price History Chart */}
         {priceHistory.length > 0 && (
           <div className="glass-card p-6 mb-8">
-            <h2 className="text-2xl font-bold text-dark-text-primary mb-6">Price History</h2>
-            <PriceChart data={priceHistory} />
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-dark-text-primary mb-4">Price History</h2>
+              
+              {/* Time Period Selector - Mobile Optimized */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex gap-2 flex-wrap">
+                  {(['daily', 'weekly', 'monthly'] as TimePeriod[]).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setTimePeriod(period)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none min-w-0 ${
+                        timePeriod === period
+                          ? 'bg-accent-primary text-white'
+                          : 'bg-dark-bg-secondary text-dark-text-secondary hover:bg-dark-bg-tertiary hover:text-dark-text-primary'
+                      }`}
+                    >
+                      {period.charAt(0).toUpperCase() + period.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <PriceChart data={filteredPriceHistory} />
           </div>
         )}
 
         {/* Historical Data Table */}
         {priceHistory.length > 0 && (
           <div className="glass-card p-6">
-            <h2 className="text-2xl font-bold text-dark-text-primary mb-6">Historical Data</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-dark-border-primary/30">
-                    <th className="text-left py-3 px-4 font-semibold text-dark-text-secondary">Date</th>
-                    <th className="text-right py-3 px-4 font-semibold text-dark-text-secondary">Buy Order</th>
-                    <th className="text-right py-3 px-4 font-semibold text-dark-text-secondary">Sell Order</th>
-                    <th className="text-right py-3 px-4 font-semibold text-dark-text-secondary">Spread</th>
-                    <th className="text-right py-3 px-4 font-semibold text-dark-text-secondary">Buy Count</th>
-                    <th className="text-right py-3 px-4 font-semibold text-dark-text-secondary">Sell Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {priceHistory.slice(0, 20).map((price, index) => (
-                    <tr key={price.id} className="border-b border-dark-border-primary/20 hover:bg-dark-bg-tertiary/50">
-                      <td className="py-3 px-4 text-dark-text-primary">
-                        {formatDateTime(price.recorded_at)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-accent-success font-medium">
-                        {formatPrice(price.highest_buy_order)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-accent-error font-medium">
-                        {formatPrice(price.lowest_sell_order)}
-                      </td>
-                      <td className={`py-3 px-4 text-right font-medium ${getPriceChangeColor(price.spread)}`}>
-                        {formatPrice(price.spread)}
-                      </td>
-                      <td className="py-3 px-4 text-right text-dark-text-primary">
-                        {price.buy_order_count.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-right text-dark-text-primary">
-                        {price.sell_order_count.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {priceHistory.length > 20 && (
-                <div className="text-center mt-4 text-dark-text-muted">
-                  Showing last 20 records of {priceHistory.length} total
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-dark-text-primary mb-4">Daily Historical Data</h2>
+              
+              {/* Day Navigation - Mobile Optimized */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <button
+                    onClick={() => {
+                      const currentIndex = availableDays.indexOf(selectedDay);
+                      if (currentIndex < availableDays.length - 1) {
+                        setSelectedDay(availableDays[currentIndex + 1]);
+                      }
+                    }}
+                    disabled={availableDays.indexOf(selectedDay) >= availableDays.length - 1}
+                    className="p-2 rounded-lg bg-dark-bg-secondary text-dark-text-secondary hover:bg-dark-bg-tertiary hover:text-dark-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <span className="px-3 py-2 bg-dark-bg-secondary rounded-lg text-sm font-medium text-dark-text-primary text-center min-w-0 flex-1 sm:flex-none">
+                    {selectedDay === 0 ? 'Today' : selectedDay === 1 ? 'Yesterday' : `${selectedDay} days ago`}
+                  </span>
+                  
+                  <button
+                    onClick={() => {
+                      const currentIndex = availableDays.indexOf(selectedDay);
+                      if (currentIndex > 0) {
+                        setSelectedDay(availableDays[currentIndex - 1]);
+                      }
+                    }}
+                    disabled={availableDays.indexOf(selectedDay) <= 0}
+                    className="p-2 rounded-lg bg-dark-bg-secondary text-dark-text-secondary hover:bg-dark-bg-tertiary hover:text-dark-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
+            
+            {dayData.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead>
+                    <tr className="border-b border-dark-border-primary/30">
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Time</th>
+                      <th className="text-right py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Buy</th>
+                      <th className="text-right py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Sell</th>
+                      <th className="text-right py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Spread</th>
+                      <th className="hidden sm:table-cell text-right py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Buy Count</th>
+                      <th className="hidden sm:table-cell text-right py-2 sm:py-3 px-2 sm:px-4 font-semibold text-dark-text-secondary">Sell Count</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayData.map((price, index) => (
+                      <tr key={price.id} className="border-b border-dark-border-primary/20 hover:bg-dark-bg-tertiary/50">
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-dark-text-primary">
+                          {new Date(price.recorded_at).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-right text-accent-success font-medium">
+                          {formatPrice(price.highest_buy_order)}
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-4 text-right text-accent-error font-medium">
+                          {formatPrice(price.lowest_sell_order)}
+                        </td>
+                        <td className={`py-2 sm:py-3 px-2 sm:px-4 text-right font-medium ${getPriceChangeColor(price.spread)}`}>
+                          {formatPrice(price.spread)}
+                        </td>
+                        <td className="hidden sm:table-cell py-2 sm:py-3 px-2 sm:px-4 text-right text-dark-text-primary">
+                          {price.buy_order_count.toLocaleString()}
+                        </td>
+                        <td className="hidden sm:table-cell py-2 sm:py-3 px-2 sm:px-4 text-right text-dark-text-primary">
+                          {price.sell_order_count.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="text-center mt-4 text-dark-text-muted text-sm">
+                  Showing {dayData.length} records for {selectedDay === 0 ? 'today' : selectedDay === 1 ? 'yesterday' : `${selectedDay} days ago`}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-2">📅</div>
+                <div className="text-dark-text-muted">
+                  No data available for {selectedDay === 0 ? 'today' : selectedDay === 1 ? 'yesterday' : `${selectedDay} days ago`}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

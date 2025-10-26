@@ -13,6 +13,7 @@ interface CasePrice {
 
 interface PriceChartProps {
   data: CasePrice[];
+  maxPoints?: number;
 }
 
 interface TooltipData {
@@ -22,7 +23,30 @@ interface TooltipData {
   type: 'buy' | 'sell';
 }
 
-export default function PriceChart({ data }: PriceChartProps) {
+// Sample data to reduce the number of points for better visualization
+const sampleData = (data: CasePrice[], maxPoints: number): CasePrice[] => {
+  if (data.length <= maxPoints) return data;
+  
+  const step = Math.floor(data.length / maxPoints);
+  const sampled: CasePrice[] = [];
+  
+  // Always include the first and last points
+  sampled.push(data[0]);
+  
+  // Sample points at regular intervals
+  for (let i = step; i < data.length - 1; i += step) {
+    sampled.push(data[i]);
+  }
+  
+  // Always include the last point
+  if (data.length > 1) {
+    sampled.push(data[data.length - 1]);
+  }
+  
+  return sampled;
+};
+
+export default function PriceChart({ data, maxPoints = 50 }: PriceChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
@@ -32,7 +56,9 @@ export default function PriceChart({ data }: PriceChartProps) {
     const updateDimensions = () => {
       if (canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        setDimensions({ width: rect.width, height: 350 });
+        // Responsive height based on screen size
+        const height = window.innerWidth < 640 ? 280 : 350; // Smaller on mobile
+        setDimensions({ width: rect.width, height });
       }
     };
 
@@ -64,13 +90,16 @@ export default function PriceChart({ data }: PriceChartProps) {
     }
 
     const sortedData = [...data].reverse();
+    const sampledData = sortedData.length > maxPoints 
+      ? sampleData(sortedData, maxPoints)
+      : sortedData;
     
     // Find closest data point by X coordinate
     let closestIndex = 0;
     let minDistance = Infinity;
     
-    for (let i = 0; i < sortedData.length; i++) {
-      const pointX = padding + (i / (sortedData.length - 1)) * chartWidth;
+    for (let i = 0; i < sampledData.length; i++) {
+      const pointX = padding + (i / (sampledData.length - 1)) * chartWidth;
       const distance = Math.abs(x - pointX);
       if (distance < minDistance) {
         minDistance = distance;
@@ -80,7 +109,7 @@ export default function PriceChart({ data }: PriceChartProps) {
 
     // Check if mouse is close enough to a data point (within 30px)
     if (minDistance < 30) {
-      const point = sortedData[closestIndex];
+      const point = sampledData[closestIndex];
       
       // Calculate price ranges
       const allPrices = sortedData.flatMap(d => [d.highest_buy_order, d.lowest_sell_order]);
@@ -155,7 +184,12 @@ export default function PriceChart({ data }: PriceChartProps) {
     // Sort data by date (oldest first for charting)
     const sortedData = [...data].reverse();
     
-    if (sortedData.length < 2) {
+    // Sample data if we have too many points
+    const sampledData = sortedData.length > maxPoints 
+      ? sampleData(sortedData, maxPoints)
+      : sortedData;
+    
+    if (sampledData.length < 2) {
       // Not enough data to draw a chart
       ctx.fillStyle = '#6b7280';
       ctx.font = '16px sans-serif';
@@ -170,7 +204,7 @@ export default function PriceChart({ data }: PriceChartProps) {
     const chartHeight = dimensions.height - (padding * 2) - 30; // Extra space for axis titles
 
     // Find min/max values for scaling
-    const allPrices = sortedData.flatMap(d => [d.highest_buy_order, d.lowest_sell_order]);
+    const allPrices = sampledData.flatMap(d => [d.highest_buy_order, d.lowest_sell_order]);
     const minPrice = Math.min(...allPrices);
     const maxPrice = Math.max(...allPrices);
     const priceRange = maxPrice - minPrice;
@@ -185,7 +219,7 @@ export default function PriceChart({ data }: PriceChartProps) {
 
     // Helper function to convert data index to X coordinate
     const indexToX = (index: number) => {
-      return padding + (index / (sortedData.length - 1)) * chartWidth;
+      return padding + (index / (sampledData.length - 1)) * chartWidth;
     };
 
     // Draw grid lines
@@ -214,7 +248,7 @@ export default function PriceChart({ data }: PriceChartProps) {
     ctx.strokeStyle = '#10b981';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    sortedData.forEach((point, index) => {
+    sampledData.forEach((point, index) => {
       const x = indexToX(index);
       const y = priceToY(point.highest_buy_order);
       if (index === 0) {
@@ -229,7 +263,7 @@ export default function PriceChart({ data }: PriceChartProps) {
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    sortedData.forEach((point, index) => {
+    sampledData.forEach((point, index) => {
       const x = indexToX(index);
       const y = priceToY(point.lowest_sell_order);
       if (index === 0) {
@@ -241,7 +275,7 @@ export default function PriceChart({ data }: PriceChartProps) {
     ctx.stroke();
 
     // Draw data points
-    sortedData.forEach((point, index) => {
+    sampledData.forEach((point, index) => {
       const x = indexToX(index);
       
       // Buy order point
@@ -275,9 +309,16 @@ export default function PriceChart({ data }: PriceChartProps) {
       }
     });
 
+    // Responsive font sizes based on screen size
+    const isMobile = window.innerWidth < 640;
+    const fontSize = isMobile ? '10px' : '12px';
+    const titleFontSize = isMobile ? '12px' : '14px';
+    const labelSpacing = isMobile ? 15 : 20;
+    const titleSpacing = isMobile ? 35 : 45;
+
     // Draw Y-axis labels (Price values) - higher prices at top
     ctx.fillStyle = '#d1d5db';
-    ctx.font = 'bold 12px sans-serif';
+    ctx.font = `bold ${fontSize} sans-serif`;
     ctx.textAlign = 'right';
     for (let i = 0; i <= 5; i++) {
       const price = yMax - (i / 5) * (yMax - yMin); // Invert the price calculation
@@ -290,48 +331,58 @@ export default function PriceChart({ data }: PriceChartProps) {
     ctx.translate(15, padding + chartHeight / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillStyle = '#9ca3af';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = `bold ${titleFontSize} sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText('Price ($)', 0, 0);
     ctx.restore();
 
-    // Draw X-axis labels (dates)
+    // Draw X-axis labels (dates) - fewer labels on mobile
     ctx.textAlign = 'center';
     ctx.fillStyle = '#d1d5db';
-    ctx.font = 'bold 12px sans-serif';
-    const labelIndices = [0, Math.floor(sortedData.length / 4), Math.floor(sortedData.length / 2), Math.floor(sortedData.length * 3 / 4), sortedData.length - 1];
+    ctx.font = `bold ${fontSize} sans-serif`;
+    const maxLabels = isMobile ? 3 : 5;
+    const labelIndices = [];
+    for (let i = 0; i < maxLabels; i++) {
+      const index = Math.floor((i / (maxLabels - 1)) * (sampledData.length - 1));
+      labelIndices.push(index);
+    }
+    
     labelIndices.forEach(index => {
-      if (index < sortedData.length) {
+      if (index < sampledData.length) {
         const x = indexToX(index);
-        const date = new Date(sortedData[index].recorded_at);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        ctx.fillText(dateStr, x, padding + chartHeight + 20);
+        const date = new Date(sampledData[index].recorded_at);
+        const dateStr = isMobile 
+          ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        ctx.fillText(dateStr, x, padding + chartHeight + labelSpacing);
       }
     });
 
     // Draw X-axis title
     ctx.fillStyle = '#9ca3af';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = `bold ${titleFontSize} sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText('Time', padding + chartWidth / 2, padding + chartHeight + 45);
+    ctx.fillText('Time', padding + chartWidth / 2, padding + chartHeight + titleSpacing);
 
-    // Draw legend
-    const legendY = padding + chartHeight + 50;
+    // Draw legend - responsive positioning
+    const legendY = padding + chartHeight + titleSpacing + 10;
     ctx.textAlign = 'left';
+    ctx.font = `bold ${fontSize} sans-serif`;
     
     // Buy order legend
     ctx.fillStyle = '#10b981';
-    ctx.fillRect(padding, legendY, 12, 12);
+    ctx.fillRect(padding, legendY, isMobile ? 10 : 12, isMobile ? 10 : 12);
     ctx.fillStyle = '#d1d5db';
-    ctx.fillText('Buy Orders', padding + 20, legendY + 9);
+    ctx.fillText('Buy Orders', padding + (isMobile ? 15 : 20), legendY + (isMobile ? 7 : 9));
     
     // Sell order legend
+    const sellLegendX = isMobile ? padding + 80 : padding + 120;
     ctx.fillStyle = '#ef4444';
-    ctx.fillRect(padding + 120, legendY, 12, 12);
+    ctx.fillRect(sellLegendX, legendY, isMobile ? 10 : 12, isMobile ? 10 : 12);
     ctx.fillStyle = '#d1d5db';
-    ctx.fillText('Sell Orders', padding + 140, legendY + 9);
+    ctx.fillText('Sell Orders', sellLegendX + (isMobile ? 15 : 20), legendY + (isMobile ? 7 : 9));
 
-  }, [data, dimensions]);
+  }, [data, dimensions, maxPoints]);
 
   if (!data || data.length === 0) {
     return (
@@ -346,13 +397,17 @@ export default function PriceChart({ data }: PriceChartProps) {
 
   return (
     <>
-      <div className="w-full relative">
+      <div className="w-full relative overflow-hidden">
         <canvas
           ref={canvasRef}
           width={dimensions.width}
           height={dimensions.height}
-          className="w-full h-80 bg-dark-bg-secondary rounded-lg cursor-crosshair"
-          style={{ maxWidth: '100%', height: '350px' }}
+          className="w-full bg-dark-bg-secondary rounded-lg cursor-crosshair"
+          style={{ 
+            maxWidth: '100%', 
+            height: window.innerWidth < 640 ? '280px' : '350px',
+            minHeight: '280px'
+          }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         />
