@@ -6,10 +6,10 @@ import { PostgrestBuilder } from '@supabase/postgrest-js';
  * @param timeoutMs - Timeout in milliseconds (default: 15000ms / 15 seconds)
  * @returns Promise that resolves with the query result or rejects on timeout
  */
-export async function withTimeout<T>(
-  queryBuilder: PostgrestBuilder<T>,
+export async function withTimeout<Schema = any, Result = any, ThrowOnError extends boolean = false>(
+  queryBuilder: PostgrestBuilder<Schema, Result, ThrowOnError>,
   timeoutMs: number = 15000
-): Promise<{ data: T | null; error: any }> {
+): Promise<{ data: Result | null; error: any }> {
   const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) => {
     setTimeout(() => {
       reject(new Error(`Supabase request timed out after ${timeoutMs}ms`));
@@ -21,7 +21,7 @@ export async function withTimeout<T>(
       queryBuilder,
       timeoutPromise
     ]);
-    return result as { data: T | null; error: any };
+    return result as { data: Result | null; error: any };
   } catch (error: any) {
     console.error('Supabase query error or timeout:', error);
     return {
@@ -110,4 +110,3 @@ export async function withCriticalTimeout<T>(
     throw error;
   }
 }
-
